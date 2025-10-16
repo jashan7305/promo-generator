@@ -5,11 +5,14 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "dotenv>=0.9.9",
     "fastapi>=0.119.0",
     "faster-whisper>=1.2.0",
     "ffmpeg-python>=0.2.0",
-    "openai>=2.4.0",
+    "numpy>=2.3.4",
+    "onnxruntime>=1.23.1",
     "python-multipart>=0.0.20",
+    "requests>=2.32.5",
+    "scikit-learn>=1.7.2",
+    "transformers>=4.57.1",
     "uvicorn>=0.37.0",
 ]
