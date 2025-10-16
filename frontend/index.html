@@ -2,10 +2,33 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>AI Promo Generator</title>
 </head>
 <body>
-    
+    <h2>AI Promo Generator</h2>
+
+    <form id="uploadForm">
+        <label for="videoFile">Upload MP4:</label>
+        <input type="file" id="videoFile" name="file" accept="video/mp4" required>
+        <br><br>
+
+        <label for="theme">Enter Theme:</label>
+        <input type="text" id="theme" name="theme" placeholder="e.g. innovation, teamwork" required>
+        <br><br>
+
+        <button type="submit">Generate Promo</button>
+    </form>
+
+    <br>
+    <div id="status"></div>
+
+    <div id="downloadSection" style="display: none;">
+        <h3>Promo Ready!</h3>
+        <video id="promoVideo" width="480" controls></video>
+        <br>
+        <a id="downloadLink" href="#" download>Download Promo</a>
+    </div>
+
+    <script src="/frontend/js/index.js"></script>
 </body>
 </html>
