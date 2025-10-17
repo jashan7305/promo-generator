@@ -69,7 +69,7 @@ def get_imp_dialogues(dialogues, theme, n_results=3):
     distances, indices = knn.kneighbors(theme_emb)
 
     top_dialogues = [dialogues[i] for i in indices[0]]
-    print(top_dialogues)
+    # print(top_dialogues)
     return top_dialogues
 
 def expand_timestamps(dialogues, secs=3, video_duration=None):
@@ -158,7 +158,7 @@ def generate_promo(video_path, theme):
     
     clips = expand_timestamps(key_dialogues, secs=3, video_duration=duration)
     promo_path = stitch_clips(video_path, clips)
-    print(os.path.getmtime("promo.mp4"))
+    # print(os.path.getmtime("promo.mp4"))
 
     cleanup_and_move(temp_folder="temp", promo_file=promo_path, promo_folder="promos")
 
