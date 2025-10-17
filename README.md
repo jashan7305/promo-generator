@@ -15,7 +15,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
-NOTE
+## NOTE
 
 This system focuses on speech-based analysis rather than visual content
 making it ideal for trailers, interviews, speeches, or dialogue-heavy videos.
