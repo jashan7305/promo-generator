@@ -33,3 +33,5 @@ ensuring speed, privacy, and full offline capability
 
 You can try the included avengers.mp4 trailer in the example_video folder,
 or use any video with clear dialogues.
+
+## Deployment Coming Soon (maybe)
