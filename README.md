@@ -14,7 +14,7 @@ source venv/bin/activate
 
 pip install -r requirements.txt
 uvicorn main:app --reload
-
+```
 NOTE
 
 This system focuses on speech-based analysis rather than visual content
@@ -26,7 +26,7 @@ For example:
 
 For avengers.mp4,
 suitable themes include:
-“save the world”, “action”, or “ambition”.<br>
+“save the world”, “action”, or “ambition”.
 
 Everything runs locally using lightweight open-source models
 ensuring speed, privacy, and full offline capability
