@@ -45,7 +45,7 @@ uploadForm.addEventListener('submit', async (e) => {
         method: 'POST',
         body: generateForm
     });
-    console.log(generateResponse)
+    // console.log(generateResponse)
 
     if (!generateResponse.ok) {
         const error = await generateResponse.json();
