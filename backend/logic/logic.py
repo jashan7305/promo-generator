@@ -80,10 +80,28 @@ def expand_timestamps(dialogues, secs=3, video_duration=None):
         clips.append((start, end))
     return clips
 
-def stitch_clips(video_path, clips, output_path="promo.mp4"):
-    streams = [ffmpeg.input(video_path, ss=s, to=e) for s, e in clips]
-    joined = ffmpeg.concat(*streams)
-    joined.output(output_path).run(overwrite_output=True)
+
+def stitch_clips(video_path, clips, audio_path="temp/temp.wav", output_path="promo.mp4"):
+    video_inputs = []
+    audio_inputs = []
+
+    for s, e in clips:
+        video_inputs.append(ffmpeg.input(video_path, ss=s, to=e))
+        audio_inputs.append(ffmpeg.input(audio_path, ss=s, to=e))
+
+    streams = []
+    for v, a in zip(video_inputs, audio_inputs):
+        streams.extend([v.video, a.audio])
+
+    joined = ffmpeg.concat(*streams, v=1, a=1)
+
+    (
+        joined
+        .output(output_path)
+        .overwrite_output()
+        .run()
+    )
+
     return output_path
 
 import os
@@ -117,36 +135,6 @@ def cleanup_and_move(temp_folder="temp", promo_file="promo.mp4", promo_folder="p
         print(f"Moved {promo_file} to {dest_path}")
     else:
         print(f"{promo_file} not found.")
-
-
-# def stitch_clips(video_path, clips, output_path="promo.mp4"):
-#     """
-#     Stitches multiple (start, end) video segments into a single promo video.
-#     Ensures proper audio-video sync and overwriting of existing files.
-#     """
-#     # Create an input for each clip
-#     inputs = []
-#     for s, e in clips:
-#         # -ss before -i for faster seeking
-#         inputs.append(ffmpeg.input(video_path, ss=s, to=e))
-    
-#     # Collect streams
-#     video_streams = [inp['v'] for inp in inputs]
-#     audio_streams = [inp['a'] for inp in inputs]
-    
-#     # Concatenate video+audio streams with n parameter
-#     joined = ffmpeg.concat(*video_streams, *audio_streams, v=1, a=1, n=len(clips)).node
-#     v = joined[0]
-#     a = joined[1]
-
-#     # Output combined file
-#     out = ffmpeg.output(v, a, output_path)
-#     out = out.overwrite_output()  # force overwrite
-#     out.run()
-    
-#     return output_path
-
-
 
 def generate_promo(video_path, theme):
     audio_path = extract_audio(video_path)
