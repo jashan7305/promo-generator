@@ -16,13 +16,19 @@ pip install -r requirements.txt
 uvicorn main:app --reload
 
 ## Note
-This system focuses on speech-based analysis rather than visual content — making it ideal for trailers, interviews, speeches, or dialogue-heavy videos.
+This system focuses on speech-based analysis rather than visual content<br>
+making it ideal for trailers, interviews, speeches, or dialogue-heavy videos.<br>
 
-For best results, choose a specific and relevant theme instead of something too vague.
-For example:
+For best results, choose a specific and relevant theme instead<br>
+of something too vague.<br> 
+For example:<br>
 
-For avengers.mp4, suitable themes include “save the world”, “action”, or “ambition”.
+For avengers.mp4,<br>
+suitable themes include:<br>
+“save the world”, “action”, or “ambition”.<br>
 
-Everything runs locally using lightweight open-source models, ensuring speed, privacy, and full offline capability.
+Everything runs locally using lightweight open-source models,<br>
+ensuring speed, privacy, and full offline capability.<br>
 
-You can try the included avengers.mp4 trailer in the example_video folder, or use any video with clear dialogues.
+You can try the included avengers.mp4 trailer in the example_video folder,<br>
+or use any video with clear dialogues.<br>
