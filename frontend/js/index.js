@@ -25,6 +25,7 @@ uploadForm.addEventListener('submit', async (e) => {
         method: 'POST',
         body: formData
     });
+    console.log(uploadResponse);
 
     if (!uploadResponse.ok) {
         statusDiv.textContent = "Upload failed.";
