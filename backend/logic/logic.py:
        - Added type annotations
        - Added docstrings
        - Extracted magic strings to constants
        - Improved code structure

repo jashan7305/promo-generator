@@ -1,0 +1,174 @@
+import os
+import shutil
+from typing import List, Dict, Any, Optional, Tuple, Union
+
+import numpy as np
+import ffmpeg
+from faster_whisper import WhisperModel
+from transformers import AutoTokenizer
+from onnxruntime import InferenceSession
+from sklearn.neighbors import NearestNeighbors
+from huggingface_hub import snapshot_download
+
+# Constants
+EMBEDDING_MODEL_NAME = "Xenova/e5-small-v2"
+DEFAULT_TEMP_FOLDER = "temp"
+DEFAULT_PROMO_FOLDER = "promos"
+DEFAULT_OUTPUT_FILENAME = "promo.mp4"
+
+# Initialization
+transcription_model = WhisperModel("base", device="cpu")
+tokenizer = AutoTokenizer.from_pretrained(EMBEDDING_MODEL_NAME)
+
+model_path = f"{EMBEDDING_MODEL_NAME}/onnx/model.onnx"
+if not os.path.exists(model_path):
+    snapshot_download(EMBEDDING_MODEL_NAME, local_dir=EMBEDDING_MODEL_NAME)
+onnx_sess = InferenceSession(model_path, providers=["CPUExecutionProvider"])
+
+def embed_texts(texts: Union[str, List[str]]) -> np.ndarray:
+    """
+    Embeds list of texts using the pre-loaded ONNX model.
+
+    Args:
+        texts: A string or list of strings to embed.
+
+    Returns:
+        Numpy array of normalized embeddings.
+    """
+    if isinstance(texts, str):
+        texts = [texts]
+    inputs = tokenizer(texts, padding=True, truncation=True, return_tensors="np")
+    outputs = onnx_sess.run(None, dict(inputs))
+    embeddings = outputs[0]
+    return embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
+
+def extract_audio(video_path: str, temp_folder: str = DEFAULT_TEMP_FOLDER) -> str:
+    """
+    Extracts audio from video to a wav file.
+
+    Args:
+        video_path: Path to the source video.
+        temp_folder: Directory to save the audio.
+
+    Returns:
+        Path to the extracted audio file.
+    """
+    if not os.path.exists(temp_folder):
+        os.makedirs(temp_folder)
+    
+    audio_path = os.path.join(temp_folder, "temp.wav")
+    ffmpeg.input(video_path).output(audio_path, ac=1, ar=16000).run(overwrite_output=True)
+    return audio_path
+
+def transcribe_audio(audio_path: str) -> List[Dict[str, Any]]:
+    """
+    Transcribes audio file using Whisper.
+
+    Args:
+        audio_path: Path to the audio file.
+
+    Returns:
+        List of dictionaries with segment info (start, end, text).
+    """
+    segments, _ = transcription_model.transcribe(audio_path)
+    return [{"start": s.start, "end": s.end, "text": s.text.strip()} for s in segments]
+
+def get_imp_dialogues(dialogues: List[Dict[str, Any]], theme: str, n_results: int = 3) -> List[Dict[str, Any]]:
+    """
+    Finds dialogue segments most relevant to the provided theme.
+
+    Args:
+        dialogues: List of transcribed segments.
+        theme: Theme description to match against.
+        n_results: Number of segments to return.
+
+    Returns:
+        List of relevant segments.
+    """
+    if not dialogues:
+        return []
+
+    texts = [d["text"] for d in dialogues]
+    dialogue_embs = np.mean(embed_texts(texts), axis=1)
+    theme_emb = np.mean(embed_texts(theme), axis=1)
+
+    knn = NearestNeighbors(n_neighbors=min(n_results, len(dialogues)), metric="cosine")
+    knn.fit(dialogue_embs)
+    _, indices = knn.kneighbors(theme_emb)
+
+    return [dialogues[i] for i in indices[0]]
+
+def expand_timestamps(dialogues: List[Dict[str, Any]], secs: int = 3, video_duration: Optional[float] = None) -> List[Tuple[float, float]]:
+    """
+    Expands segments by given seconds.
+
+    Args:
+        dialogues: List of dialogue segments.
+        secs: Seconds to expand.
+        video_duration: Optional total duration of the video.
+
+    Returns:
+        List of (start, end) tuples.
+    """
+    clips = []
+    for d in dialogues:
+        start = max(0.0, d["start"] - secs)
+        end = min(video_duration, d["end"] + secs) if video_duration else d["end"] + secs
+        clips.append((float(start), float(end)))
+    return clips
+
+def stitch_clips(video_path: str, clips: List[Tuple[float, float]], audio_path: str = "temp/temp.wav", output_path: str = DEFAULT_OUTPUT_FILENAME) -> str:
+    """
+    Stitches video clips based on timestamps.
+
+    Args:
+        video_path: Path to source video.
+        clips: List of start/end times.
+        audio_path: Path to audio file.
+        output_path: Path to output video.
+
+    Returns:
+        Path to output video.
+    """
+    streams = []
+    for s, e in clips:
+        v = ffmpeg.input(video_path, ss=s, to=e).video
+        a = ffmpeg.input(audio_path, ss=s, to=e).audio
+        streams.extend([v, a])
+
+    ffmpeg.concat(*streams, v=1, a=1).output(output_path).overwrite_output().run()
+    return output_path
+
+def cleanup_and_move(temp_folder: str = DEFAULT_TEMP_FOLDER, promo_file: str = DEFAULT_OUTPUT_FILENAME, promo_folder: str = DEFAULT_PROMO_FOLDER) -> None:
+    """
+    Cleans up temporary files and moves generated promo.
+    """
+    if os.path.exists(temp_folder):
+        shutil.rmtree(temp_folder)
+    
+    if not os.path.exists(promo_folder):
+        os.makedirs(promo_folder)
+    
+    if os.path.exists(promo_file):
+        shutil.move(promo_file, os.path.join(promo_folder, promo_file))
+
+def generate_promo(video_path: str, theme: str) -> str:
+    """
+    Orchestrates the promo generation process.
+    """
+    audio_path = extract_audio(video_path)
+    segments = transcribe_audio(audio_path)
+    key_dialogues = get_imp_dialogues(segments, theme)
+    
+    probe = ffmpeg.probe(video_path)
+    duration = float(probe['format']['duration'])
+    
+    clips = expand_timestamps(key_dialogues, secs=3, video_duration=duration)
+    promo_path = stitch_clips(video_path, clips)
+    cleanup_and_move(promo_file=promo_path)
+
+    return os.path.join(DEFAULT_PROMO_FOLDER, DEFAULT_OUTPUT_FILENAME)
+
+def hello_world() -> Dict[str, str]:
+    """Returns a simple greeting."""
+    return {"message": "hello world"}
