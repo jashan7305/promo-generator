@@ -13,5 +13,11 @@ app.include_router(router.router, prefix="/api")
 app.mount("/frontend", StaticFiles(directory="../frontend", html=True), name="frontend")
 
 @app.get("/", response_class=FileResponse)
-def serve_index():
+def serve_index() -> FileResponse:
+    """
+    Serves the main frontend index page.
+
+    Returns:
+        The index.html file.
+    """
     return FileResponse(os.path.join(frontend_dir, "index.html"))

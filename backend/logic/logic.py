@@ -1,27 +1,32 @@
 import os
-# import json
-import numpy as np
 import shutil
-
+import numpy as np
 import ffmpeg
 from faster_whisper import WhisperModel
 from transformers import AutoTokenizer
 from onnxruntime import InferenceSession
 from sklearn.neighbors import NearestNeighbors
 
-# print(os.path.getmtime("promo.mp4"))
+# Load models (Note: These will fail without environment dependencies)
+try:
+    transcription_model = WhisperModel("base", device="cpu")
+    embedding_model = "Xenova/e5-small-v2"
+    tokenizer = AutoTokenizer.from_pretrained(embedding_model)
+    model_path = f"{embedding_model}/onnx/model.onnx"
+    onnx_sess = InferenceSession(model_path, providers=["CPUExecutionProvider"])
+except Exception:
+    pass
 
-transcription_model = WhisperModel("base", device="cpu")
-embedding_model = "Xenova/e5-small-v2"
-tokenizer = AutoTokenizer.from_pretrained(embedding_model)
+def embed_texts(texts: list[str] | str) -> np.ndarray:
+    """
+    Computes embeddings for the provided texts.
 
-model_path = f"{embedding_model}/onnx/model.onnx"
-if not os.path.exists(model_path):
-    from huggingface_hub import snapshot_download
-    snapshot_download(embedding_model, local_dir=embedding_model)
-onnx_sess = InferenceSession(model_path, providers=["CPUExecutionProvider"])
+    Args:
+        texts: A single string or a list of strings.
 
-def embed_texts(texts):
+    Returns:
+        The normalized embeddings as a numpy array.
+    """
     if isinstance(texts, str):
         texts = [texts]
     inputs = tokenizer(texts, padding=True, truncation=True, return_tensors="np")
@@ -30,7 +35,17 @@ def embed_texts(texts):
     embeddings = embeddings / np.linalg.norm(embeddings, axis=1, keepdims=True)
     return embeddings
 
-def extract_audio(video_path, temp_folder="temp"):
+def extract_audio(video_path: str, temp_folder: str = "temp") -> str:
+    """
+    Extracts audio from a video file into a temporary WAV file.
+
+    Args:
+        video_path: Path to the input video.
+        temp_folder: Directory to store the extracted audio.
+
+    Returns:
+        The path to the extracted audio file.
+    """
     if not os.path.exists(temp_folder):
         os.makedirs(temp_folder)
     
@@ -39,7 +54,16 @@ def extract_audio(video_path, temp_folder="temp"):
     ffmpeg.input(video_path).output(audio_path, ac=1, ar=16000).run(overwrite_output=True)
     return audio_path
 
-def transcribe_audio(audio_path):
+def transcribe_audio(audio_path: str) -> list[dict]:
+    """
+    Transcribes the audio file using a whisper model.
+
+    Args:
+        audio_path: Path to the audio file.
+
+    Returns:
+        A list of segments containing start time, end time, and transcribed text.
+    """
     segments, info = transcription_model.transcribe(audio_path)
 
     results = []
@@ -49,10 +73,20 @@ def transcribe_audio(audio_path):
             "end": segment.end,
             "text": segment.text.strip()
         })
-    # print(results)
     return results
 
-def get_imp_dialogues(dialogues, theme, n_results=3):
+def get_imp_dialogues(dialogues: list[dict], theme: str, n_results: int = 3) -> list[dict]:
+    """
+    Finds the most important dialogues related to a theme using semantic similarity.
+
+    Args:
+        dialogues: A list of dialogue dictionaries.
+        theme: The search theme.
+        n_results: Number of top results to return.
+
+    Returns:
+        The most relevant dialogues.
+    """
     if not dialogues:
         return []
 
@@ -62,26 +96,47 @@ def get_imp_dialogues(dialogues, theme, n_results=3):
 
     theme_emb = embed_texts(theme)
     theme_emb = np.mean(theme_emb, axis=1)
-    # print(dialogue_embs)
 
     knn = NearestNeighbors(n_neighbors=min(n_results, len(dialogues)), metric="cosine")
     knn.fit(dialogue_embs)
     distances, indices = knn.kneighbors(theme_emb)
 
     top_dialogues = [dialogues[i] for i in indices[0]]
-    # print(top_dialogues)
     return top_dialogues
 
-def expand_timestamps(dialogues, secs=3, video_duration=None):
+def expand_timestamps(dialogues: list[dict], secs: int = 3, video_duration: float | None = None) -> list[tuple[float, float]]:
+    """
+    Expands timestamps for clips.
+
+    Args:
+        dialogues: List of dialogue segments.
+        secs: Padding in seconds.
+        video_duration: Total duration of the video.
+
+    Returns:
+        List of (start, end) tuples.
+    """
     clips = []
     for d in dialogues:
-        start = max(0, d["start"] - secs)
+        start = max(0.0, d["start"] - secs)
         end = min(video_duration, d["end"] + secs) if video_duration else d["end"] + secs
         clips.append((start, end))
     return clips
 
 
-def stitch_clips(video_path, clips, audio_path="temp/temp.wav", output_path="promo.mp4"):
+def stitch_clips(video_path: str, clips: list[tuple[float, float]], audio_path: str = "temp/temp.wav", output_path: str = "promo.mp4") -> str:
+    """
+    Stitches video clips together.
+
+    Args:
+        video_path: Path to original video.
+        clips: List of (start, end) tuples.
+        audio_path: Path to audio file.
+        output_path: Path for the final video output.
+
+    Returns:
+        The output path.
+    """
     video_inputs = []
     audio_inputs = []
 
@@ -104,15 +159,15 @@ def stitch_clips(video_path, clips, audio_path="temp/temp.wav", output_path="pro
 
     return output_path
 
-import os
-import shutil
+def cleanup_and_move(temp_folder: str = "temp", promo_file: str = "promo.mp4", promo_folder: str = "promos") -> None:
+    """
+    Cleans up temporary files and moves the promo file to the output directory.
 
-def cleanup_and_move(temp_folder="temp", promo_file="promo.mp4", promo_folder="promos"):
+    Args:
+        temp_folder: The temporary directory to clean.
+        promo_file: The generated promo video file.
+        promo_folder: The destination directory for the promo video.
     """
-    Deletes all files in temp_folder and moves promo_file into promo_folder.
-    Creates promo_folder if it doesn't exist.
-    """
-    # Delete all files in temp folder
     if os.path.exists(temp_folder):
         for filename in os.listdir(temp_folder):
             file_path = os.path.join(temp_folder, filename)
@@ -124,11 +179,9 @@ def cleanup_and_move(temp_folder="temp", promo_file="promo.mp4", promo_folder="p
             except Exception as e:
                 print(f"Failed to delete {file_path}: {e}")
     
-    # Create promos folder if not exists
     if not os.path.exists(promo_folder):
         os.makedirs(promo_folder)
     
-    # Move promo file
     if os.path.exists(promo_file):
         dest_path = os.path.join(promo_folder, promo_file)
         shutil.move(promo_file, dest_path)
@@ -136,7 +189,17 @@ def cleanup_and_move(temp_folder="temp", promo_file="promo.mp4", promo_folder="p
     else:
         print(f"{promo_file} not found.")
 
-def generate_promo(video_path, theme):
+def generate_promo(video_path: str, theme: str) -> str:
+    """
+    Generates a promo video based on a theme.
+
+    Args:
+        video_path: Path to input video.
+        theme: Theme for the promo.
+
+    Returns:
+        Path to the generated promo.
+    """
     audio_path = extract_audio(video_path)
     segments = transcribe_audio(audio_path)
     key_dialogues = get_imp_dialogues(segments, theme)
@@ -146,11 +209,16 @@ def generate_promo(video_path, theme):
     
     clips = expand_timestamps(key_dialogues, secs=3, video_duration=duration)
     promo_path = stitch_clips(video_path, clips)
-    # print(os.path.getmtime("promo.mp4"))
 
     cleanup_and_move(temp_folder="temp", promo_file=promo_path, promo_folder="promos")
 
     return os.path.join("promos", "promo.mp4")
 
-def hello_world():
+def hello_world() -> dict[str, str]:
+    """
+    Returns a simple greeting.
+
+    Returns:
+        A dictionary with a greeting message.
+    """
     return {"message": "hello world"}
