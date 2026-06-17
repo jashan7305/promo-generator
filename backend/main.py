@@ -14,4 +14,7 @@ app.mount("/frontend", StaticFiles(directory="../frontend", html=True), name="fr
 
 @app.get("/", response_class=FileResponse)
 def serve_index():
+    """
+    Serves the main application page.
+    """
     return FileResponse(os.path.join(frontend_dir, "index.html"))

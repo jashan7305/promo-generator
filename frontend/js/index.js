@@ -1,3 +1,6 @@
+/**
+ * Handles the upload form submission.
+ */
 const uploadForm = document.getElementById('uploadForm');
 const statusDiv = document.getElementById('status');
 const downloadSection = document.getElementById('downloadSection');
