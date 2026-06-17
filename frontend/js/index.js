@@ -1,9 +1,8 @@
-const uploadForm = document.getElementById('uploadForm');
-const statusDiv = document.getElementById('status');
-const downloadSection = document.getElementById('downloadSection');
-const promoVideo = document.getElementById('promoVideo');
-const downloadLink = document.getElementById('downloadLink');
-
+/**
+ * Handles the video upload and promo generation form submission.
+ *
+ * @param {Event} e - The form submission event.
+ */
 uploadForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     statusDiv.textContent = "Uploading video...";
