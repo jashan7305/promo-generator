@@ -1,9 +1,18 @@
+/**
+ * Handles the video upload and promo generation process.
+ * Listens for the upload form submission, uploads the video, triggers the generation API,
+ * and updates the UI with the resulting promo video link.
+ */
 const uploadForm = document.getElementById('uploadForm');
 const statusDiv = document.getElementById('status');
 const downloadSection = document.getElementById('downloadSection');
 const promoVideo = document.getElementById('promoVideo');
 const downloadLink = document.getElementById('downloadLink');
 
+/**
+ * Event listener for the form submission.
+ * @param {Event} e - The form submission event.
+ */
 uploadForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     statusDiv.textContent = "Uploading video...";
