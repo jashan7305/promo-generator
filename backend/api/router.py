@@ -2,7 +2,6 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse
 import os, uuid
 from logic import logic
-import os
 
 router = APIRouter()
 
@@ -11,6 +10,15 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.post("/upload")
 async def upload_video(file: UploadFile = File(...)):
+    """
+    Uploads a video file to the server.
+
+    Args:
+        file (UploadFile): The video file to be uploaded.
+
+    Returns:
+        dict: The path where the video is saved.
+    """
     try:
         file_ext = os.path.splitext(file.filename)[1]
         video_path = os.path.join(UPLOAD_DIR, f"{uuid.uuid4()}{file_ext}")
@@ -22,6 +30,16 @@ async def upload_video(file: UploadFile = File(...)):
 
 @router.post("/generate")
 async def generate_promo_route(video_path: str = Form(...), theme: str = Form(...)):
+    """
+    Generates a promo video based on a uploaded video and a theme.
+
+    Args:
+        video_path (str): Path to the uploaded video.
+        theme (str): The thematic focus for the promo.
+
+    Returns:
+        dict: Information about the generated promo and download URL.
+    """
     try:
         promo_path = logic.generate_promo(video_path, theme)
         filename = os.path.basename(promo_path)
@@ -31,6 +49,15 @@ async def generate_promo_route(video_path: str = Form(...), theme: str = Form(..
 
 @router.get("/download/promos/{filename}")
 async def download_promo(filename: str):
+    """
+    Downloads a generated promo video.
+
+    Args:
+        filename (str): The name of the file to download.
+
+    Returns:
+        FileResponse: The video file response.
+    """
     file_path = os.path.join("promos", "promo.mp4") if filename == "promo.mp4" else os.path.join("temp", filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
@@ -38,4 +65,10 @@ async def download_promo(filename: str):
 
 @router.get("/hello")
 def hello():
+    """
+    Checks if the API is operational.
+
+    Returns:
+        dict: A message confirming the API is working.
+    """
     return logic.hello_world()
