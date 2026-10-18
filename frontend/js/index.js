@@ -1,3 +1,10 @@
+/**
+ * Handles the video upload form submission.
+ * Uploads the selected video and then triggers promo generation based on the provided theme.
+ *
+ * @event submit
+ * @param {Event} e - The form submission event.
+ */
 const uploadForm = document.getElementById('uploadForm');
 const statusDiv = document.getElementById('status');
 const downloadSection = document.getElementById('downloadSection');
