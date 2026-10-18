@@ -2,7 +2,6 @@ from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 from fastapi.responses import FileResponse
 import os, uuid
 from logic import logic
-import os
 
 router = APIRouter()
 
@@ -11,6 +10,9 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 @router.post("/upload")
 async def upload_video(file: UploadFile = File(...)):
+    """
+    Uploads a video file to the server.
+    """
     try:
         file_ext = os.path.splitext(file.filename)[1]
         video_path = os.path.join(UPLOAD_DIR, f"{uuid.uuid4()}{file_ext}")
@@ -22,6 +24,9 @@ async def upload_video(file: UploadFile = File(...)):
 
 @router.post("/generate")
 async def generate_promo_route(video_path: str = Form(...), theme: str = Form(...)):
+    """
+    Generates a promo for a given video based on a theme.
+    """
     try:
         promo_path = logic.generate_promo(video_path, theme)
         filename = os.path.basename(promo_path)
@@ -31,6 +36,9 @@ async def generate_promo_route(video_path: str = Form(...), theme: str = Form(..
 
 @router.get("/download/promos/{filename}")
 async def download_promo(filename: str):
+    """
+    Downloads a generated promo file.
+    """
     file_path = os.path.join("promos", "promo.mp4") if filename == "promo.mp4" else os.path.join("temp", filename)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=404, detail="File not found")
@@ -38,4 +46,7 @@ async def download_promo(filename: str):
 
 @router.get("/hello")
 def hello():
+    """
+    Simple test endpoint.
+    """
     return logic.hello_world()
