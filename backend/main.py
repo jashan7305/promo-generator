@@ -1,17 +1,21 @@
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-from api import router
-import os
+from pathlib import Path
 
-frontend_dir = os.path.join(os.path.dirname(__file__), "../frontend")
+from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
+
+from api import router
+
+
+BASE_DIR = Path(__file__).resolve().parent
+frontend_dir = BASE_DIR.parent / "frontend"
 
 app = FastAPI(title="Promo Generator")
 
 app.include_router(router.router, prefix="/api")
 
-app.mount("/frontend", StaticFiles(directory="../frontend", html=True), name="frontend")
+app.mount("/frontend", StaticFiles(directory=frontend_dir, html=True), name="frontend")
 
 @app.get("/", response_class=FileResponse)
 def serve_index():
-    return FileResponse(os.path.join(frontend_dir, "index.html"))
+    return FileResponse(frontend_dir / "index.html")
