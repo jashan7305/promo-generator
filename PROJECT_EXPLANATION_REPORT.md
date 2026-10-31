@@ -14,7 +14,51 @@ Prepared 31 October 2026
 
 The project is an **automated media-analysis and editing pipeline**. Its machine-learning models are used for inference. The repository does not train those models.
 
-## 2. Step-by-step: what happens from input to export
+## 2. Main backend architecture: models, API, logic, scripts
+
+The backend is organized into four areas with different responsibilities. The important architectural distinction is that the **API handles requests, logic performs the work, model files supply pretrained inference assets, and scripts support one-off validation or maintenance tasks**.
+
+```text
+backend/
++-- main.py                 Application entry point; mounts UI and API
++-- api/
+|   +-- router.py           HTTP endpoints, uploads, jobs, downloads
++-- logic/
+|   +-- logic.py            Analysis, selection, edit planning, rendering
++-- models/                 Cached pretrained model assets (runtime data)
++-- scripts/
+|   +-- validate_synthetic_dialogue.py  Standalone validation utility
++-- storage/                Uploaded media and generated promo files
+```
+
+### `models/` — pretrained model assets
+
+This is a data/cache directory, not a Python package containing model-training code. In this checkout, `backend/models/e5-small-v2/` holds the E5 tokenizer/configuration and ONNX model files used for semantic text embeddings. `logic.py` downloads the configured E5 snapshot on first use if the expected ONNX file is missing, then loads it with ONNX Runtime. Faster-Whisper is initialized from its configured model name when transcription is first needed; its checkpoint is managed by the Faster-Whisper/CTranslate2 model-loading path and may use its own cache. The project does not retrain either model. In Docker, `compose.yaml` mounts a persistent model volume so downloaded assets can be reused across container restarts.
+
+### `api/` — the HTTP and job boundary
+
+`backend/api/router.py` is the interface between the browser and the backend pipeline. It receives and validates uploads, stores source/music files under generated IDs, handles supported YouTube downloads, validates generation settings, creates background jobs, reports job status, and serves generated MP4 files through a constrained download route. It calls `logic.generate_promo(...)` in a worker thread and sends progress updates into the job record. It does not implement the ranking or video-editing algorithms.
+
+### `logic/` — the application pipeline
+
+`backend/logic/logic.py` contains the core work. It loads the speech and embedding models; probes and extracts audio; transcribes speech; measures sound energy, motion, and shot changes; builds dialogue and visual candidates; scores and selects moments; plans and critiques a draft; handles soundtrack/dialogue timing; renders through FFmpeg; and validates the output. `generate_promo(...)` is the orchestration function called by the API. The smaller functions in this module implement individual analysis and editing stages.
+
+### `scripts/` — manual support utilities
+
+`backend/scripts/validate_synthetic_dialogue.py` is a standalone validation tool, not a server route and not part of every generation request. It creates synthetic speech/video fixtures on macOS, supplies deterministic fixture transcripts, then calls the real generation pipeline across audio modes. It requires FFmpeg, ffprobe, and macOS `say`. It is useful for exercising end-to-end dialogue/audio behavior without depending on speech-recognition accuracy.
+
+### How the folders work together
+
+1. `main.py` starts FastAPI and registers `api/router.py` under `/api`.
+2. The frontend calls API routes to upload source media and submit a generation request.
+3. The API validates and queues the request, then calls `logic.generate_promo(...)` in the background.
+4. The logic loads cached assets from `models/` when needed, analyzes source media, plans and renders a promo, and writes output into `storage/`.
+5. The API reports progress/result metadata and provides the safe download URL; the frontend displays the completed cut.
+6. The standalone script can separately exercise the logic pipeline for validation; it is not involved in ordinary browser requests.
+
+In a presentation, describe it as **request layer → orchestration/processing layer → pretrained model assets and media tools → stored output → API response**. The model directory is an input to the logic layer, not a separate service that controls the application.
+
+## 3. Step-by-step: what happens from input to export
 
 ### Step 1 — The user sets the brief
 
@@ -72,7 +116,7 @@ The application checks that the output can be probed/decoded, that its duration 
 
 The job status becomes complete and the API returns a safe download URL plus metadata: selected clips, source and output timestamps, script outline, analysis provider, iteration trace, soundtrack details, and QA report. The frontend displays the video, cut sheet, script outline, and generation summary.
 
-## 3. Models and what “training” means here
+## 4. Models and what “training” means here
 
 ### Faster-Whisper (default model size: `base`)
 
@@ -90,7 +134,7 @@ When configured, the API transcription model (`whisper-1` by default) can provid
 
 There is no dataset-driven hyperparameter training or automatic optimization loop in this repository. The “hyperparameters” visible here are **inference settings and manually chosen decision parameters**, not learned weights. Examples include model size, CPU/int8 inference, maximum token length, ranking weights, clip lengths, audio-analysis window size, repair-pass limit, and worker count. The score weights in `score_dialogues` are explicit constants selected in code for each strategy. The draft critic can repair an individual edit, but it is not model training or parameter tuning.
 
-## 4. How the ranking works, in plain language
+## 5. How the ranking works, in plain language
 
 For each dialogue beat, the code calculates normalized indicators: semantic match, word overlap, ASR confidence, sentence quality/coherence, audio energy, visual change, motion, API score, and (when available) soundtrack match. A strategy selects a fixed weighting profile:
 
@@ -103,7 +147,7 @@ For each dialogue beat, the code calculates normalized indicators: semantic matc
 
 The resulting score is one part of selection. The selector also tries to cover the target duration, avoid redundant moments, preserve narrative order when requested, and assign beats roles such as hook, setup, escalation, or ending. These choices are rule-based heuristics, not a separately trained ranking model.
 
-## 5. User-facing configurations
+## 6. User-facing configurations
 
 ### Analysis mode
 
@@ -142,7 +186,7 @@ The implementation uses different context padding and maximum clip durations for
 
 The backend validates incompatible combinations. Selected dialogue is mapped to output time so soundtrack ducking and safe source-audio muting can be applied.
 
-## 6. Important files and their responsibilities
+## 7. Important files and their responsibilities
 
 | File | Responsibility |
 | --- | --- |
@@ -163,7 +207,7 @@ The backend validates incompatible combinations. Selected dialogue is mapped to 
 | `example_video/avengers.mp4` | Example source video for trying the application. |
 | `generated_example_promo/promo.mp4` | Example rendered output. |
 
-## 7. Runtime configuration reference
+## 8. Runtime configuration reference
 
 | Variable | Default | Effect |
 | --- | --- | --- |
@@ -185,7 +229,7 @@ The backend validates incompatible combinations. Selected dialogue is mapped to 
 
 In Docker Compose, the documented API and music-upload values are passed through the environment. Other variables can be added to the service environment as needed.
 
-## 8. Suggested presentation script
+## 9. Suggested presentation script
 
 1. **Introduce the goal:** “This system automates the first cut of a promo from a longer video, guided by a theme and optional editing preferences.”
 2. **Show the user inputs:** Explain source, theme, duration, direction, aspect ratio, strategy, analysis mode, and soundtrack.
@@ -196,7 +240,7 @@ In Docker Compose, the documented API and music-upload values are passed through
 7. **Explain validation and output:** It checks duration, aspect ratio, decoding, and timeline constraints, then returns the promo and a cut sheet.
 8. **Clarify training:** “The repository does not train neural networks. We use pretrained models and configure inference/runtime settings and hand-designed ranking weights.”
 
-## 9. Practical limits to mention
+## 10. Practical limits to mention
 
 - This is an automated first edit; creative quality still depends on the source material and specificity of the prompt.
 - Semantic similarity is a relevance clue, not proof that the system understands a film’s full plot.
@@ -204,6 +248,6 @@ In Docker Compose, the documented API and music-upload values are passed through
 - API modes depend on network access, valid credentials, and external service availability.
 - Render validation checks media and timeline properties, but it does not replace watching and listening to the final promo.
 
-## 10. One-sentence summary
+## 11. One-sentence summary
 
 **Framecut combines pretrained speech and text models with deterministic audio/visual measurements and rule-based editing heuristics, then uses FFmpeg to render and validate a theme-guided promo.**

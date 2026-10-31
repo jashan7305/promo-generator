@@ -282,7 +282,7 @@ class EditingHelpersTest(unittest.TestCase):
 
     def test_api_suggestions_with_invalid_or_nonfinite_source_times_are_ignored(self):
         promoted = logic.apply_api_moments(
-            [],
+            [{"start": 2.5, "end": 4.5, "source": "visual"}],
             [
                 {"start": -10, "end": -5, "importance": 1.0},
                 {"start": 50, "end": 51, "importance": 0.9},
@@ -292,8 +292,7 @@ class EditingHelpersTest(unittest.TestCase):
             10.0,
         )
         self.assertEqual(len(promoted), 1)
-        self.assertGreaterEqual(promoted[0]["start"], 0.0)
-        self.assertLessEqual(promoted[0]["end"], 10.0)
+        self.assertEqual((promoted[0]["start"], promoted[0]["end"]), (2.5, 4.5))
 
     def test_silent_visual_windows_are_available_without_dialogue(self):
         candidates = logic.build_visual_candidates(
