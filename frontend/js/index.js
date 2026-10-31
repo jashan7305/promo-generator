@@ -2,6 +2,12 @@ const uploadForm = document.getElementById('uploadForm');
 const fileInput = document.getElementById('videoFile');
 const musicInput = document.getElementById('musicFile');
 const audioModeInput = document.getElementById('audioMode');
+const transcriptionProviderInput = document.getElementById('transcriptionProvider');
+const visualProviderInput = document.getElementById('visualProvider');
+const elevenLabsKeyInput = document.getElementById('elevenLabsKey');
+const geminiKeyInput = document.getElementById('geminiKey');
+const elevenLabsCredentials = document.getElementById('elevenLabsCredentials');
+const geminiCredentials = document.getElementById('geminiCredentials');
 const fileMeta = document.getElementById('fileMeta');
 const musicMeta = document.getElementById('musicMeta');
 const sourcePreview = document.getElementById('sourcePreview');
@@ -32,6 +38,17 @@ const agentTrace = document.getElementById('agentTrace');
 
 const MAX_FILE_BYTES = 1024 * 1024 * 1024;
 const MAX_MUSIC_BYTES = 512 * 1024 * 1024;
+
+function updateProviderFields() {
+    const transcriptionProvider = transcriptionProviderInput.value;
+    const visualProvider = visualProviderInput.value;
+    elevenLabsCredentials.hidden = transcriptionProvider !== 'elevenlabs';
+    geminiCredentials.hidden = visualProvider !== 'gemini';
+    elevenLabsKeyInput.required = transcriptionProvider === 'elevenlabs';
+    geminiKeyInput.required = visualProvider === 'gemini';
+    if (transcriptionProvider !== 'elevenlabs') elevenLabsKeyInput.value = '';
+    if (visualProvider !== 'gemini') geminiKeyInput.value = '';
+}
 let sourcePreviewUrl = null;
 let pollTimer = null;
 
@@ -258,12 +275,29 @@ uploadForm.addEventListener('submit', async (event) => {
         generationForm.append('energy', document.getElementById('energy').value);
         generationForm.append('aspect_ratio', document.getElementById('aspectRatio').value);
         generationForm.append('strategy', document.getElementById('strategy').value);
-        generationForm.append('analysis_mode', document.getElementById('analysisMode').value);
-        const generationData = await readJson(await fetch('/api/generate', { method: 'POST', body: generationForm }));
+        generationForm.append('analysis_mode', 'providers');
+        generationForm.append('transcription_provider', transcriptionProviderInput.value);
+        generationForm.append('visual_provider', visualProviderInput.value);
+        if (transcriptionProviderInput.value === 'elevenlabs' && elevenLabsKeyInput.value.trim()) {
+            generationForm.append('elevenlabs_api_key', elevenLabsKeyInput.value.trim());
+        }
+        if (visualProviderInput.value === 'gemini' && geminiKeyInput.value.trim()) {
+            generationForm.append('gemini_api_key', geminiKeyInput.value.trim());
+        }
+        const generationResponsePromise = fetch('/api/generate', { method: 'POST', body: generationForm });
+        elevenLabsKeyInput.value = '';
+        geminiKeyInput.value = '';
+        const generationResponse = await generationResponsePromise;
+        const generationData = await readJson(generationResponse);
         await pollJob(generationData.status_url);
     } catch (error) {
+        elevenLabsKeyInput.value = '';
+        geminiKeyInput.value = '';
         showError(error.message || 'The local cut failed.');
     }
 });
 
+transcriptionProviderInput.addEventListener('change', updateProviderFields);
+visualProviderInput.addEventListener('change', updateProviderFields);
+updateProviderFields();
 setStatus('Waiting for a video.', 0, 'STANDBY');

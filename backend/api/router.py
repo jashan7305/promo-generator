@@ -9,7 +9,7 @@ import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse
 
 from logic import logic
@@ -220,6 +220,11 @@ def _run_generation(
     aspect_ratio: str,
     strategy: str,
     analysis_mode: str,
+    provider_key: str | None,
+    transcription_provider: str | None,
+    visual_provider: str | None,
+    gemini_api_key: str | None,
+    elevenlabs_api_key: str | None,
 ) -> None:
     def progress(value: float, stage: str) -> None:
         _set_job(job_id, progress=value, stage=stage)
@@ -238,6 +243,11 @@ def _run_generation(
             audio_mode=audio_mode,
             job_id=job_id,
             progress_callback=progress,
+            provider_key=provider_key,
+            transcription_provider=transcription_provider,
+            visual_provider=visual_provider,
+            gemini_api_key=gemini_api_key,
+            elevenlabs_api_key=elevenlabs_api_key,
         )
         relative_output = Path(result["promo_path"]).resolve().relative_to(GENERATED_DIR.resolve())
         result = {
@@ -251,6 +261,7 @@ def _run_generation(
 
 @router.post("/generate", status_code=202)
 async def generate_promo_route(
+    request: Request,
     theme: str | None = Form(None),
     edit_prompt: str | None = Form(None),
     video_id: str | None = Form(None),
@@ -262,6 +273,11 @@ async def generate_promo_route(
     aspect_ratio: str = Form("source"),
     strategy: str = Form("theme"),
     analysis_mode: str = Form("auto"),
+    provider_key: str | None = Form(None),
+    transcription_provider: str | None = Form(None),
+    visual_provider: str | None = Form(None),
+    gemini_api_key: str | None = Form(None),
+    elevenlabs_api_key: str | None = Form(None),
 ):
     request_text = (edit_prompt if edit_prompt is not None else theme or "").strip()
     max_length = 500 if edit_prompt is not None else 160
@@ -276,8 +292,30 @@ async def generate_promo_route(
         raise HTTPException(status_code=422, detail="Unknown output format.")
     if strategy not in {"theme", "best-overall", "story-arc", "visual-montage"}:
         raise HTTPException(status_code=422, detail="Unknown selection strategy.")
-    if analysis_mode not in {"auto", "local", "api"}:
+    if analysis_mode not in {"auto", "local", "api", "gemini", "elevenlabs", "providers"}:
         raise HTTPException(status_code=422, detail="Unknown analysis mode.")
+    if analysis_mode == "providers":
+        transcription_provider = transcription_provider or "local"
+        visual_provider = visual_provider or "local"
+        if transcription_provider not in {"local", "elevenlabs"}:
+            raise HTTPException(status_code=422, detail="Unknown transcription provider.")
+        if visual_provider not in {"local", "gemini"}:
+            raise HTTPException(status_code=422, detail="Unknown visual intelligence provider.")
+        if transcription_provider == "elevenlabs" and not ((elevenlabs_api_key or "").strip() or logic.ELEVENLABS_API_KEY):
+            raise HTTPException(status_code=422, detail="Enter an ElevenLabs API key or configure ELEVENLABS_API_KEY.")
+        if visual_provider == "gemini" and not ((gemini_api_key or "").strip() or logic.GEMINI_API_KEY):
+            raise HTTPException(status_code=422, detail="Enter a Gemini API key or configure PROMO_GEMINI_API_KEY.")
+    elif analysis_mode == "gemini" and not ((provider_key or "").strip() or logic.GEMINI_API_KEY):
+        raise HTTPException(status_code=422, detail="Enter a Gemini API key or configure PROMO_GEMINI_API_KEY.")
+    elif analysis_mode == "elevenlabs" and not ((provider_key or "").strip() or logic.ELEVENLABS_API_KEY):
+        raise HTTPException(status_code=422, detail="Enter an ElevenLabs API key or configure ELEVENLABS_API_KEY.")
+    elif analysis_mode == "api" and not ((provider_key or "").strip() or logic.VISION_API_KEY):
+        raise HTTPException(status_code=422, detail="Enter an API key or configure PROMO_VISION_API_KEY.")
+    has_submitted_keys = any((value or "").strip() for value in (provider_key, gemini_api_key, elevenlabs_api_key))
+    if has_submitted_keys:
+        host = request.url.hostname or ""
+        if request.url.scheme != "https" and host not in {"localhost", "127.0.0.1", "::1"}:
+            raise HTTPException(status_code=400, detail="Hosted API keys can only be sent over HTTPS outside local development.")
     if audio_mode not in {"auto", "source", "music", "mixed", "dialogue"}:
         raise HTTPException(status_code=422, detail="Unknown soundtrack mode.")
 
@@ -310,6 +348,11 @@ async def generate_promo_route(
         aspect_ratio,
         strategy,
         analysis_mode,
+        (provider_key or "").strip() or None,
+        transcription_provider,
+        visual_provider,
+        (gemini_api_key or "").strip() or None,
+        (elevenlabs_api_key or "").strip() or None,
     )
     return {"job_id": job_id, "status_url": f"/api/jobs/{job_id}"}
 
@@ -341,6 +384,8 @@ def health():
         "status": "ok",
         "active_jobs": sum(job["status"] in {"queued", "running"} for job in jobs.values()),
         "vision_api_configured": bool(logic.VISION_API_KEY),
+        "gemini_api_configured": bool(logic.GEMINI_API_KEY),
+        "elevenlabs_api_configured": bool(logic.ELEVENLABS_API_KEY),
     }
 
 

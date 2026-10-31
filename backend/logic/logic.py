@@ -37,6 +37,10 @@ WHISPER_MODEL_NAME = os.getenv("PROMO_WHISPER_MODEL", "base")
 EMBEDDING_MODEL_NAME = os.getenv("PROMO_EMBEDDING_MODEL", "Xenova/e5-small-v2")
 VISION_API_KEY = os.getenv("PROMO_VISION_API_KEY") or os.getenv("OPENAI_API_KEY")
 VISION_API_MODEL = os.getenv("PROMO_VISION_MODEL", "gpt-4.1-mini")
+GEMINI_API_KEY = os.getenv("PROMO_GEMINI_API_KEY")
+GEMINI_MODEL = os.getenv("PROMO_GEMINI_MODEL", "gemini-3.8-flash")
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
+ELEVENLABS_MODEL = os.getenv("PROMO_ELEVENLABS_MODEL", "scribe_v2")
 API_TRANSCRIBE_MODEL = os.getenv("PROMO_API_TRANSCRIBE_MODEL", "whisper-1")
 API_TIMEOUT_SECONDS = int(os.getenv("PROMO_API_TIMEOUT_SECONDS", "120"))
 YOUTUBE_MAX_DURATION = int(os.getenv("PROMO_YOUTUBE_MAX_DURATION", "7200"))
@@ -1619,27 +1623,225 @@ def extract_storyboard(
     return frames
 
 
-def _api_json_response(response: requests.Response) -> dict:
+def _provider_error(provider: str, status_code: int) -> RuntimeError:
+    if status_code in {401, 403}:
+        detail = "API key was rejected or lacks permission."
+    elif status_code == 404:
+        detail = "The configured model or endpoint is unavailable. Check the model setting."
+    elif status_code in {402, 429}:
+        detail = "The provider rate limit or quota was reached. Check the provider account and retry later."
+    elif status_code in {400, 413, 415, 422}:
+        detail = "The provider rejected the request or media format."
+    elif status_code >= 500:
+        detail = "The provider is temporarily unavailable. Retry later."
+    else:
+        detail = "The provider request failed."
+    return RuntimeError(f"{provider} request failed (HTTP {status_code}). {detail}")
+
+
+def _api_json_response(response: requests.Response, provider: str = "Vision API") -> dict:
     if not response.ok:
         # Provider error bodies can echo credential fragments. Keep diagnostics
         # useful without copying any response content into job logs.
-        raise RuntimeError(f"Vision API request failed (HTTP {response.status_code}).")
-    payload = response.json()
-    content = payload.get("choices", [{}])[0].get("message", {}).get("content", "")
+        raise _provider_error(provider, response.status_code)
+    try:
+        payload = response.json()
+    except (ValueError, json.JSONDecodeError) as error:
+        raise RuntimeError(f"{provider} returned a malformed response.") from error
+    try:
+        content = payload["choices"][0]["message"]["content"]
+    except (KeyError, IndexError, TypeError) as error:
+        raise RuntimeError(f"{provider} returned a response without message content.") from error
     if isinstance(content, list):
         content = "".join(part.get("text", "") for part in content if isinstance(part, dict))
     try:
         return json.loads(content)
     except (TypeError, json.JSONDecodeError) as error:
-        raise RuntimeError("Vision API returned an invalid structured response.") from error
+        raise RuntimeError(f"{provider} returned malformed JSON.") from error
+
+
+def _api_provider_config(provider: str, api_key: str | None) -> tuple[str, str, str]:
+    """Return endpoint, credential, and model for request-scoped provider settings."""
+    if provider not in {"gemini", "openai"}:
+        raise ValueError("Unknown vision provider.")
+    key = api_key or (GEMINI_API_KEY if provider == "gemini" else VISION_API_KEY)
+    if not key:
+        raise ValueError(f"No API key is configured for {provider}.")
+    if provider == "gemini":
+        return ("https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+                key, GEMINI_MODEL)
+    return ("https://api.openai.com/v1/chat/completions", key, VISION_API_MODEL)
+
+
+def _provider_key(provider: str, api_key: str | None = None) -> str | None:
+    if api_key:
+        return api_key
+    if provider == "gemini":
+        return GEMINI_API_KEY
+    if provider == "elevenlabs":
+        return ELEVENLABS_API_KEY
+    return VISION_API_KEY
+
+
+def _post_provider_request(provider: str, endpoint: str, **kwargs) -> requests.Response:
+    try:
+        return requests.post(endpoint, timeout=API_TIMEOUT_SECONDS, **kwargs)
+    except requests.exceptions.Timeout as error:
+        raise RuntimeError(f"{provider} request timed out. Retry with a shorter source or try again later.") from error
+    except requests.exceptions.ConnectionError as error:
+        raise RuntimeError(f"Could not connect to {provider}. Check the network and retry.") from error
+
+
+def transcribe_audio_with_elevenlabs(
+    audio_path: str | Path,
+    api_key: str | None = None,
+    duration: float | None = None,
+    progress_callback: ProgressCallback | None = None,
+) -> list[dict]:
+    """Transcribe extracted mono 16 kHz PCM WAV and preserve returned timing evidence."""
+    key = _provider_key("elevenlabs", api_key)
+    if not key:
+        raise ValueError("ElevenLabs transcription is selected, but no ElevenLabs API key was provided.")
+    source = Path(audio_path)
+    try:
+        with wave.open(str(source), "rb") as audio:
+            if (audio.getnchannels(), audio.getsampwidth(), audio.getframerate()) != (1, 2, 16000):
+                raise ValueError("ElevenLabs requires the extracted mono 16 kHz, 16-bit PCM audio track.")
+    except (OSError, wave.Error) as error:
+        raise ValueError("ElevenLabs requires a readable extracted WAV audio track.") from error
+
+    try:
+        with source.open("rb") as audio_file:
+            response = _post_provider_request(
+                "ElevenLabs",
+                "https://api.elevenlabs.io/v1/speech-to-text",
+                headers={"xi-api-key": key},
+                files={"file": (source.name, audio_file, "audio/wav")},
+                data={"model_id": ELEVENLABS_MODEL, "file_format": "pcm_s16le_16",
+                      "timestamps_granularity": "word", "diarize": "true"},
+            )
+    except requests.exceptions.RequestException as error:
+        raise RuntimeError("ElevenLabs could not process the audio request.") from error
+    if not response.ok:
+        raise _provider_error("ElevenLabs", response.status_code)
+    try:
+        payload = response.json()
+    except (ValueError, json.JSONDecodeError) as error:
+        raise RuntimeError("ElevenLabs returned a malformed transcription response.") from error
+    if not isinstance(payload, dict):
+        raise RuntimeError("ElevenLabs returned a malformed transcription response.")
+
+    limit = float(duration) if duration is not None else None
+    raw_words = payload.get("words")
+    results: list[dict] = []
+    if isinstance(raw_words, list) and raw_words:
+        phrase: list[dict] = []
+        def flush_phrase() -> None:
+            if phrase:
+                results.append(_elevenlabs_phrase(phrase))
+                phrase.clear()
+
+        for word in raw_words:
+            if not isinstance(word, dict) or word.get("type", "word") != "word":
+                continue
+            text = str(word.get("text", "")).strip()
+            try:
+                start, end = float(word["start"]), float(word["end"])
+            except (KeyError, TypeError, ValueError):
+                flush_phrase()
+                continue
+            if (not text or not math.isfinite(start) or not math.isfinite(end) or
+                    start < 0 or end <= start or (limit is not None and end > limit + 0.1)):
+                flush_phrase()
+                continue
+            speaker_id = word.get("speaker_id")
+            if phrase and (start - phrase[0]["start"] > 2.5 or speaker_id != phrase[0].get("speaker_id") or len(phrase) >= 40):
+                flush_phrase()
+            try:
+                logprob = float(word["logprob"]) if word.get("logprob") is not None else None
+            except (TypeError, ValueError):
+                logprob = None
+            phrase.append({"start": start, "end": end, "text": text,
+                           "speaker_id": speaker_id, "logprob": logprob})
+        flush_phrase()
+        for segment in results:
+            segment["word_timing_available"] = True
+            segment["timing_approximate"] = False
+    else:
+        # Some models/configurations return timed chunks or only plain text.
+        # Preserve measured chunk bounds; for text-only results use the full
+        # source interval and mark timing approximate without inventing words.
+        chunks = payload.get("chunks")
+        if isinstance(chunks, list):
+            for chunk in chunks:
+                if not isinstance(chunk, dict):
+                    continue
+                text = str(chunk.get("text", "")).strip()
+                try:
+                    start, end = float(chunk["start"]), float(chunk["end"])
+                except (KeyError, TypeError, ValueError):
+                    continue
+                if not text or not math.isfinite(start) or not math.isfinite(end) or start < 0 or end <= start or (limit is not None and end > limit + 0.1):
+                    continue
+                results.append({"start": start, "end": end, "context_start": start,
+                                "context_end": end, "text": text, "words": [],
+                                "confidence": None, "confidence_available": False,
+                                "speaker_id": chunk.get("speaker_id"),
+                                "timing_approximate": False, "word_timing_available": False})
+        elif payload.get("text") and limit and limit > 0:
+            results.append({"start": 0.0, "end": limit, "context_start": 0.0,
+                            "context_end": limit, "text": str(payload["text"]).strip(),
+                            "words": [], "confidence": None, "confidence_available": False,
+                            "timing_approximate": True, "word_timing_available": False})
+    _progress(progress_callback, 0.95, "ElevenLabs transcription complete")
+    return results
+
+
+def _elevenlabs_phrase(words: list[dict]) -> dict:
+    start, end = words[0]["start"], words[-1]["end"]
+    mapped_words = [{"start": round(item["start"], 3), "end": round(item["end"], 3),
+                     "word": item["text"]} for item in words]
+    logprobs = [item["logprob"] for item in words if item["logprob"] is not None]
+    # The API exposes log probabilities, not calibrated segment confidence.
+    # Keep the pipeline's ranking default and explicitly flag the distinction.
+    return {"start": round(start, 3), "end": round(end, 3),
+            "context_start": round(start, 3), "context_end": round(end, 3),
+            "text": " ".join(item["text"] for item in words), "words": mapped_words,
+            "confidence": None, "confidence_available": False,
+            "speaker_id": words[0].get("speaker_id"),
+            "provider_logprob": round(sum(logprobs) / len(logprobs), 4) if logprobs else None,
+            "timing_approximate": False, "word_timing_available": True}
+
+
+def transcribe_audio_with_provider(
+    provider: str,
+    audio_path: str | Path,
+    *,
+    api_key: str | None = None,
+    duration: float | None = None,
+    progress_callback: ProgressCallback | None = None,
+) -> list[dict]:
+    if provider == "local":
+        return transcribe_audio(str(audio_path), progress_callback)
+    if provider == "elevenlabs":
+        return transcribe_audio_with_elevenlabs(
+            audio_path, api_key=api_key, duration=duration, progress_callback=progress_callback
+        )
+    if provider == "openai":
+        return transcribe_audio_with_api(
+            str(audio_path), progress_callback, duration=duration, api_key=api_key,
+        )
+    raise ValueError("Unknown transcription provider.")
 
 
 def transcribe_audio_with_api(
     audio_path: str,
     progress_callback: ProgressCallback | None = None,
     duration: float | None = None,
+    api_key: str | None = None,
 ) -> list[dict]:
-    if not VISION_API_KEY:
+    api_key = _provider_key("openai", api_key)
+    if not api_key:
         raise RuntimeError("No API key is configured for API audio analysis.")
     source_path = Path(audio_path)
     results = []
@@ -1672,20 +1874,24 @@ def transcribe_audio_with_api(
 
         for index, (chunk_path, offset, chunk_duration) in enumerate(chunks):
             with chunk_path.open("rb") as audio_file:
-                response = requests.post(
+                response = _post_provider_request(
+                    "OpenAI",
                     "https://api.openai.com/v1/audio/transcriptions",
-                    headers={"Authorization": f"Bearer {VISION_API_KEY}"},
+                    headers={"Authorization": f"Bearer {api_key}"},
                     files={"file": (chunk_path.name, audio_file, "audio/wav")},
                     data={
                         "model": API_TRANSCRIBE_MODEL,
                         "response_format": "verbose_json",
                         "timestamp_granularities[]": "segment",
                     },
-                    timeout=API_TIMEOUT_SECONDS,
                 )
             if not response.ok:
-                raise RuntimeError(f"API transcription failed (HTTP {response.status_code}).")
-            for segment in response.json().get("segments", []):
+                raise _provider_error("OpenAI transcription", response.status_code)
+            try:
+                response_payload = response.json()
+            except (ValueError, json.JSONDecodeError) as error:
+                raise RuntimeError("OpenAI transcription returned malformed JSON.") from error
+            for segment in response_payload.get("segments", []):
                 text = str(segment.get("text", "")).strip()[:1000]
                 try:
                     local_start = float(segment.get("start", 0))
@@ -1728,6 +1934,8 @@ def analyze_storyboard_with_api(
     dialogues: list[dict],
     strategy: str,
     request: dict | None = None,
+    provider: str = "openai",
+    api_key: str | None = None,
 ) -> dict:
     """Ask a vision model to reason over the storyboard and transcript.
 
@@ -1736,7 +1944,8 @@ def analyze_storyboard_with_api(
     represented by the timestamped transcript and local energy features.
     """
 
-    if not VISION_API_KEY:
+    api_key = _provider_key(provider, api_key)
+    if not api_key:
         raise RuntimeError("No API key is configured for vision analysis.")
     transcript = "\n".join(
         f"[{item['start']:.1f}-{item['end']:.1f}] {item['text']}" for item in dialogues
@@ -1751,6 +1960,7 @@ def analyze_storyboard_with_api(
                 "avoid duplicate or corrupted lines, cover the film's setup, turn, and payoff when possible, and include silent "
                 "visual beats when they carry story. Describe the visible event briefly and label its type. "
                 "Treat descriptions as interpretations of sampled frames, not verified ground truth. "
+                "Only propose moments supported by the supplied sampled frame times or transcript intervals; do not invent source timestamps. "
                 "Return only the requested JSON.\n\n"
                 f"Theme: {theme}\nSelection strategy: {strategy}\nVideo duration: {duration:.1f}s\n"
                 f"Edit request: {json.dumps(request or {}, ensure_ascii=False)[:3000]}\n"
@@ -1802,11 +2012,13 @@ def analyze_storyboard_with_api(
         },
         "required": ["moments", "script"],
     }
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions",
-        headers={"Authorization": f"Bearer {VISION_API_KEY}", "Content-Type": "application/json"},
+    endpoint, api_key, model = _api_provider_config(provider, api_key)
+    response = _post_provider_request(
+        "Gemini" if provider == "gemini" else "OpenAI",
+        endpoint,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         json={
-            "model": VISION_API_MODEL,
+            "model": model,
             "temperature": 0.2,
             "messages": [
                 {"role": "system", "content": "Return strict JSON matching the supplied schema."},
@@ -1817,9 +2029,46 @@ def analyze_storyboard_with_api(
                 "json_schema": {"name": "trailer_analysis", "strict": True, "schema": schema},
             },
         },
-        timeout=API_TIMEOUT_SECONDS,
     )
-    return _api_json_response(response)
+    result = _api_json_response(response, "Gemini" if provider == "gemini" else "OpenAI")
+    return _validate_storyboard_response(result, duration, "Gemini" if provider == "gemini" else "OpenAI")
+
+
+def _validate_storyboard_response(result: dict, duration: float, provider: str = "Vision API") -> dict:
+    if not isinstance(result, dict) or not isinstance(result.get("moments"), list):
+        raise RuntimeError(f"{provider} returned an invalid storyboard structure.")
+    script = result.get("script")
+    script_fields = {"title": str, "logline": str, "voiceover": list,
+                     "text_cards": list, "beats": list}
+    if not isinstance(script, dict) or any(not isinstance(script.get(name), kind) for name, kind in script_fields.items()):
+        raise RuntimeError(f"{provider} returned an invalid trailer script structure.")
+    for name in ("voiceover", "text_cards", "beats"):
+        if any(not isinstance(item, str) for item in script[name]):
+            raise RuntimeError(f"{provider} returned invalid text in the trailer script.")
+    valid_moments = []
+    event_types = {"title_card", "establishing", "dialogue", "interaction", "product",
+                   "action", "reaction", "atmosphere", "reveal", "other"}
+    text_fields = ("reason", "story_role", "transcript_quote", "visual_description", "event_type")
+    for moment in result["moments"]:
+        if not isinstance(moment, dict) or any(field not in moment for field in
+                ("start", "end", "importance", *text_fields)):
+            raise RuntimeError(f"{provider} returned a storyboard moment with missing fields.")
+        if any(not isinstance(moment[field], str) for field in text_fields):
+            raise RuntimeError(f"{provider} returned invalid text in a storyboard moment.")
+        if moment["event_type"] not in event_types:
+            raise RuntimeError(f"{provider} returned an unsupported storyboard event type.")
+        try:
+            if isinstance(moment["start"], bool) or isinstance(moment["end"], bool) or isinstance(moment["importance"], bool):
+                raise ValueError("boolean is not a numeric moment field")
+            start, end = float(moment["start"]), float(moment["end"])
+            importance = float(moment["importance"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if (not all(math.isfinite(value) for value in (start, end, importance)) or
+                start < 0 or end <= start or end > duration or not 0 <= importance <= 1):
+            continue
+        valid_moments.append(moment)
+    return {"moments": valid_moments, "script": script}
 
 
 def apply_api_moments(candidates: list[dict], api_moments: list[dict], duration: float) -> list[dict]:
@@ -1850,44 +2099,32 @@ def apply_api_moments(candidates: list[dict], api_moments: list[dict], duration:
             start = max(0.0, min(duration - 0.5, center - 0.25))
             end = start + 0.5
         importance = max(0.0, min(1.0, raw_importance))
-        overlaps = [
-            candidate
-            for candidate in output
-            if _overlap_ratio((start, end), (candidate["start"], candidate["end"])) >= 0.2
-        ]
-        if overlaps:
-            target = max(overlaps, key=lambda item: _overlap_ratio((start, end), (item["start"], item["end"])))
-            target["api_score"] = max(float(target.get("api_score", 0.5)), importance)
-            target["api_reason"] = str(moment.get("reason", ""))[:400]
-            target["story_role"] = str(moment.get("story_role", ""))[:120]
-            target["visual_description"] = str(moment.get("visual_description", ""))[:400]
-            target["event_type"] = str(moment.get("event_type", "other"))
-            if target["event_type"] == "title_card" and start <= 6.0:
-                target["source"] = "opening"
-                target["preserve_opening"] = True
-                target["text"] = "Identified title card"
-        else:
-            event_type = str(moment.get("event_type", "other"))
-            identified_title_card = event_type == "title_card" and start <= 6.0
-            output.append(
-                {
-                    "start": start,
-                    "end": end,
-                    "text": "Identified title card" if identified_title_card else str(moment.get("transcript_quote") or "Visual story beat")[:400],
-                    "confidence": 0.9,
-                    "energy_score": 0.5,
-                    "visual_score": importance,
-                    "quality_score": 0.75,
-                    "coherence_score": 1.0,
-                    "api_score": importance,
-                    "api_reason": str(moment.get("reason", ""))[:400],
-                    "story_role": str(moment.get("story_role", ""))[:120],
-                    "visual_description": str(moment.get("visual_description", ""))[:400],
-                    "event_type": str(moment.get("event_type", "other")),
-                    "source": "opening" if identified_title_card else "api",
-                    "preserve_opening": identified_title_card,
-                }
-            )
+        overlaps = []
+        for candidate in output:
+            try:
+                candidate_start, candidate_end = float(candidate["start"]), float(candidate["end"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            if (not math.isfinite(candidate_start) or not math.isfinite(candidate_end) or
+                    candidate_start < 0 or candidate_end <= candidate_start or candidate_end > duration):
+                continue
+            ratio = _overlap_ratio((start, end), (candidate_start, candidate_end))
+            if ratio >= 0.2:
+                overlaps.append((ratio, candidate))
+        # The model may rank local evidence but cannot introduce source time
+        # intervals absent from shot, opening, or dialogue analysis.
+        if not overlaps:
+            continue
+        _ratio, target = max(overlaps, key=lambda item: item[0])
+        target["api_score"] = max(float(target.get("api_score", 0.5)), importance)
+        target["api_reason"] = str(moment.get("reason", ""))[:400]
+        target["story_role"] = str(moment.get("story_role", ""))[:120]
+        target["visual_description"] = str(moment.get("visual_description", ""))[:400]
+        target["event_type"] = str(moment.get("event_type", "other"))
+        if target["event_type"] == "title_card" and start <= 6.0:
+            target["source"] = "opening"
+            target["preserve_opening"] = True
+            target["text"] = "Identified title card"
     return output
 
 
@@ -1940,7 +2177,7 @@ def build_edit_plan(
             "measure_audio_energy",
             "analyse_music_beats" if music_enabled else "no_external_soundtrack",
             "measure_visual_motion",
-            "storyboard_vision" if analysis_mode in {"auto", "api"} else "local_visual_scoring",
+            "storyboard_vision" if analysis_mode in {"auto", "api", "gemini"} else "local_visual_scoring",
             "draft_selection",
             "dialogue_continuity_critic",
             "ffmpeg_stitch",
@@ -2069,9 +2306,10 @@ def interpret_edit_request(
     }
 
 
-def interpret_edit_request_with_api(prompt: str, defaults: dict) -> dict:
+def interpret_edit_request_with_api(prompt: str, defaults: dict, provider: str = "openai", api_key: str | None = None) -> dict:
     """Use the configured language model for creative intent, with no media upload."""
-    if not VISION_API_KEY:
+    api_key = _provider_key(provider, api_key)
+    if not api_key:
         raise RuntimeError("No API key is configured for request interpretation.")
     fields = {
         "theme": {"type": "string"},
@@ -2092,11 +2330,14 @@ def interpret_edit_request_with_api(prompt: str, defaults: dict) -> dict:
         "required": list(fields),
         "additionalProperties": False,
     }
-    response = requests.post(
-        "https://api.openai.com/v1/chat/completions",
-        headers={"Authorization": f"Bearer {VISION_API_KEY}", "Content-Type": "application/json"},
+    endpoint, api_key, model = _api_provider_config(provider, api_key)
+    provider_label = "Gemini" if provider == "gemini" else "OpenAI"
+    response = _post_provider_request(
+        provider_label,
+        endpoint,
+        headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         json={
-            "model": VISION_API_MODEL,
+            "model": model,
             "temperature": 0,
             "response_format": {
                 "type": "json_schema",
@@ -2114,13 +2355,16 @@ def interpret_edit_request_with_api(prompt: str, defaults: dict) -> dict:
                 {"role": "user", "content": f"Defaults: {json.dumps(defaults)}\nRequest: {prompt}"},
             ],
         },
-        timeout=API_TIMEOUT_SECONDS,
     )
-    parsed = _api_json_response(response)
+    parsed = _api_json_response(response, provider_label)
+    if not isinstance(parsed, dict):
+        raise RuntimeError(f"{provider_label} returned an invalid edit interpretation.")
+    if set(parsed) != set(fields):
+        raise RuntimeError(f"{provider_label} returned an edit interpretation with missing or unexpected fields.")
     result = dict(defaults)
     result.update(parsed)
     result["prompt"] = prompt
-    if result.get("target_duration") not in {15, 30, 45, 60, 90, 120}:
+    if isinstance(result.get("target_duration"), bool) or result.get("target_duration") not in {15, 30, 45, 60, 90, 120}:
         raise ValueError("The editing model returned an unsupported duration.")
     if result.get("energy") not in {"balanced", "cinematic", "high-impact"}:
         raise ValueError("The editing model returned an unsupported creative direction.")
@@ -2130,6 +2374,20 @@ def interpret_edit_request_with_api(prompt: str, defaults: dict) -> dict:
         raise ValueError("The editing model returned an unsupported output format.")
     if result.get("ending") not in {"source_order", "memorable", "emotional", "reveal", "unresolved", "musical", "title"}:
         raise ValueError("The editing model returned an unsupported ending style.")
+    if result.get("pacing") not in {"gradual", "slow", "fast"}:
+        raise ValueError("The editing model returned an unsupported pacing style.")
+    if result.get("dialogue_preference") not in {"natural", "prioritize", "minimize"}:
+        raise ValueError("The editing model returned an unsupported dialogue preference.")
+    if result.get("music_role") not in {"source_audio", "score", "structural_guide"}:
+        raise ValueError("The editing model returned an unsupported music role.")
+    if not isinstance(result.get("theme"), str):
+        raise ValueError("The editing model returned an invalid theme.")
+    if not isinstance(result.get("desired_content"), list) or any(
+        not isinstance(value, str) for value in result["desired_content"]
+    ):
+        raise ValueError("The editing model returned invalid desired content.")
+    if not isinstance(result.get("hook_first"), bool):
+        raise ValueError("The editing model returned an invalid hook preference.")
     theme = str(result.get("theme", defaults["theme"]))[:160].strip()
     result["theme"] = theme or defaults["theme"]
     result["desired_content"] = [str(value)[:80] for value in result.get("desired_content", [])[:12]]
@@ -3158,6 +3416,68 @@ def stitch_clips(
     return str(output_path)
 
 
+def resolve_analysis_configuration(
+    analysis_mode: str = "auto",
+    transcription_provider: str | None = None,
+    visual_provider: str | None = None,
+    provider_key: str | None = None,
+    gemini_api_key: str | None = None,
+    elevenlabs_api_key: str | None = None,
+) -> dict:
+    """Resolve explicit independent providers while retaining legacy mode behavior."""
+    if transcription_provider is None and visual_provider is None:
+        if analysis_mode == "local":
+            transcription_provider, visual_provider = "local", "local"
+        elif analysis_mode == "gemini":
+            transcription_provider, visual_provider = "local", "gemini"
+        elif analysis_mode == "elevenlabs":
+            transcription_provider, visual_provider = "elevenlabs", "local"
+        elif analysis_mode in {"api", "auto"}:
+            legacy_key = provider_key or VISION_API_KEY
+            if analysis_mode == "api" or legacy_key:
+                transcription_provider, visual_provider = "openai", "openai"
+                gemini_api_key = elevenlabs_api_key = legacy_key
+            else:
+                transcription_provider, visual_provider = "local", "local"
+        else:
+            raise ValueError("Unknown analysis mode.")
+    else:
+        transcription_provider = transcription_provider or "local"
+        visual_provider = visual_provider or "local"
+        if analysis_mode not in {"auto", "local", "providers"}:
+            raise ValueError("Choose providers using the independent provider controls.")
+
+    if transcription_provider not in {"local", "elevenlabs", "openai"}:
+        raise ValueError("Unknown transcription provider.")
+    if visual_provider not in {"local", "gemini", "openai"}:
+        raise ValueError("Unknown visual intelligence provider.")
+    transcription_key = elevenlabs_api_key or (provider_key if transcription_provider == "elevenlabs" else None)
+    if transcription_provider == "elevenlabs":
+        transcription_key = transcription_key or ELEVENLABS_API_KEY
+        if not transcription_key:
+            raise ValueError("ElevenLabs transcription is selected, but no ElevenLabs API key was provided.")
+    elif transcription_provider == "openai":
+        transcription_key = provider_key or VISION_API_KEY
+        if not transcription_key:
+            raise ValueError("OpenAI transcription is selected, but PROMO_VISION_API_KEY is not configured.")
+    visual_key = gemini_api_key or (provider_key if visual_provider == "gemini" else None)
+    if visual_provider == "gemini":
+        visual_key = visual_key or GEMINI_API_KEY
+        if not visual_key:
+            raise ValueError("Gemini visual intelligence is selected, but no Gemini API key was provided.")
+    elif visual_provider == "openai":
+        visual_key = provider_key or VISION_API_KEY
+        if not visual_key:
+            raise ValueError("OpenAI visual analysis is selected, but PROMO_VISION_API_KEY is not configured.")
+    return {
+        "transcription_provider": transcription_provider,
+        "visual_provider": visual_provider,
+        "transcription_key": transcription_key,
+        "visual_key": visual_key,
+        "legacy_auto": analysis_mode == "auto" and transcription_provider == "openai" and visual_provider == "openai",
+    }
+
+
 def generate_promo(
     video_path: str | Path,
     theme: str,
@@ -3170,6 +3490,11 @@ def generate_promo(
     audio_mode: str = "auto",
     job_id: str | None = None,
     progress_callback: ProgressCallback | None = None,
+    provider_key: str | None = None,
+    transcription_provider: str | None = None,
+    visual_provider: str | None = None,
+    gemini_api_key: str | None = None,
+    elevenlabs_api_key: str | None = None,
 ) -> dict:
     """Generate one isolated promo and return its metadata."""
 
@@ -3195,8 +3520,18 @@ def generate_promo(
         raise ValueError("Unknown output format.")
     if strategy not in {"theme", "best-overall", "story-arc", "visual-montage"}:
         raise ValueError("Unknown selection strategy.")
-    if analysis_mode not in {"auto", "local", "api"}:
-        raise ValueError("Unknown analysis mode.")
+    configuration = resolve_analysis_configuration(
+        analysis_mode=analysis_mode,
+        transcription_provider=transcription_provider,
+        visual_provider=visual_provider,
+        provider_key=provider_key,
+        gemini_api_key=gemini_api_key,
+        elevenlabs_api_key=elevenlabs_api_key,
+    )
+    transcription_provider = configuration["transcription_provider"]
+    visual_provider = configuration["visual_provider"]
+    transcription_key = configuration["transcription_key"]
+    visual_key = configuration["visual_key"]
     if audio_mode not in {"auto", "source", "music", "mixed", "dialogue"}:
         raise ValueError("Unknown soundtrack mode.")
     if audio_mode in {"music", "mixed"} and not music_path:
@@ -3206,13 +3541,13 @@ def generate_promo(
     effective_audio_mode = audio_mode
     if effective_audio_mode == "auto":
         effective_audio_mode = "mixed" if music_path else "source"
-    if analysis_mode == "api" and not VISION_API_KEY:
-        raise ValueError("API analysis was selected, but PROMO_VISION_API_KEY is not configured.")
-    if analysis_mode in {"auto", "api"} and VISION_API_KEY:
+    if visual_provider in {"gemini", "openai"}:
         try:
-            request = interpret_edit_request_with_api(request["prompt"], request)
+            request = interpret_edit_request_with_api(
+                request["prompt"], request, visual_provider, visual_key
+            )
         except Exception:
-            if analysis_mode == "api":
+            if not configuration["legacy_auto"]:
                 raise
     theme = request["theme"]
     target_duration = request["target_duration"]
@@ -3227,7 +3562,7 @@ def generate_promo(
         target_duration,
         energy,
         strategy,
-        analysis_mode,
+        "gemini" if visual_provider == "gemini" else "api" if visual_provider == "openai" else "local",
         music_enabled=bool(music_path),
         request=request,
     )
@@ -3260,21 +3595,25 @@ def generate_promo(
         # so a long trailer still feels responsive.
         _progress(progress_callback, 0.18 + min(0.30, value / max(metadata["duration"], 1.0) * 0.30), stage)
 
-    provider = "local"
-    api_requested = analysis_mode in {"api", "auto"} and bool(VISION_API_KEY)
-    if audio_path and api_requested:
+    transcription_backend = "local"
+    if audio_path and transcription_provider in {"elevenlabs", "openai"}:
         try:
-            raw_dialogues = transcribe_audio_with_api(
-                audio_path,
-                transcription_progress,
-                duration=metadata["duration"],
+            raw_dialogues = transcribe_audio_with_provider(
+                transcription_provider, audio_path, api_key=transcription_key,
+                duration=metadata["duration"], progress_callback=transcription_progress,
             )
-            provider = "openai-audio+local-visual"
+            transcription_backend = transcription_provider
         except Exception:
-            if analysis_mode == "api":
+            if not configuration["legacy_auto"]:
                 raise
-    if audio_path and not raw_dialogues:
-        raw_dialogues = transcribe_audio(audio_path, transcription_progress)
+            transcription_provider = "local"
+    if audio_path and not raw_dialogues and transcription_provider in {"local", "openai"}:
+        raw_dialogues = transcribe_audio_with_provider(
+            "local", audio_path, duration=metadata["duration"],
+            progress_callback=transcription_progress,
+        )
+        transcription_backend = "local"
+    visual_backend = "local"
     dialogues = split_dialogue_sentences(merge_dialogue_segments(raw_dialogues))
     _progress(progress_callback, 0.50, "Analysing visual rhythm")
 
@@ -3301,7 +3640,7 @@ def generate_promo(
         motion_profile,
     )
     api_result: dict = {}
-    if analysis_mode in {"api", "auto"} and VISION_API_KEY:
+    if visual_provider in {"gemini", "openai"}:
         _progress(progress_callback, 0.58, "Analysing storyboard with vision API")
         try:
             storyboard = extract_storyboard(
@@ -3310,19 +3649,25 @@ def generate_promo(
                 metadata["duration"],
                 shot_boundaries,
             )
-            if storyboard:
-                api_result = analyze_storyboard_with_api(
-                    storyboard,
-                    theme,
-                    metadata["duration"],
-                    dialogues,
-                    strategy,
-                    request=request,
-                )
-                provider = "openai-audio+vision" if audio_path else "openai-vision"
+            if not storyboard:
+                raise RuntimeError("No usable storyboard frames could be extracted for the selected visual provider.")
+            api_result = analyze_storyboard_with_api(
+                storyboard,
+                theme,
+                metadata["duration"],
+                dialogues,
+                strategy,
+                request=request,
+                provider=visual_provider,
+                api_key=visual_key,
+            )
+            visual_backend = visual_provider
         except Exception:
-            if analysis_mode == "api":
+            if not configuration["legacy_auto"]:
                 raise
+    provider = "local" if transcription_backend == "local" and visual_backend == "local" else (
+        f"{transcription_backend}-audio+{visual_backend}-visual" if audio_path else f"{visual_backend}-visual"
+    )
 
     candidates = dialogues + visual_candidates
     if opening_candidate:

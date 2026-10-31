@@ -14,7 +14,7 @@
                 <h1>AI Promo Generator</h1>
                 <p class="intro">Upload a trailer, describe the idea you want to surface, and generate a focused teaser.</p>
             </div>
-            <span class="privacy-badge">Runs locally</span>
+            <span class="privacy-badge">Local-first</span>
         </header>
 
         <section class="card generator-card">
@@ -90,14 +90,29 @@
                             </select>
                         </div>
                         <div>
-                            <label class="field-label" for="analysisMode">Video analysis</label>
-                            <select class="select-input" id="analysisMode" name="analysis_mode">
-                                <option value="auto" selected>Hybrid · API if configured</option>
-                                <option value="local">Local audio + visual</option>
-                                <option value="api">Vision + audio API</option>
+                            <label class="field-label" for="transcriptionProvider">Transcription</label>
+                            <select class="select-input" id="transcriptionProvider" name="transcription_provider">
+                                <option value="local" selected>Local Faster Whisper</option>
+                                <option value="elevenlabs">ElevenLabs Scribe</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="field-label" for="visualProvider">Visual intelligence</label>
+                            <select class="select-input" id="visualProvider" name="visual_provider">
+                                <option value="local" selected>On-device / local analysis</option>
+                                <option value="gemini">Google Gemini</option>
                             </select>
                         </div>
                     </div>
+                    <div id="elevenLabsCredentials" class="provider-credentials" hidden>
+                        <label class="field-label" for="elevenLabsKey">ElevenLabs API key</label>
+                        <input class="text-input" type="password" id="elevenLabsKey" autocomplete="off" spellcheck="false" placeholder="Paste your ElevenLabs API key">
+                    </div>
+                    <div id="geminiCredentials" class="provider-credentials" hidden>
+                        <label class="field-label" for="geminiKey">Gemini API key</label>
+                        <input class="text-input" type="password" id="geminiKey" autocomplete="off" spellcheck="false" placeholder="Paste your Gemini API key">
+                    </div>
+                    <p class="field-help">Hosted keys are sent to this server only with the generation request and are not saved by the app. Use HTTPS in production. Clearing the fields does not revoke a key or guarantee its removal from process or network infrastructure.</p>
                 </div>
 
                 <div class="form-section">

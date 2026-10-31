@@ -103,9 +103,13 @@ Open `http://127.0.0.1:8000` after the server starts.
 | `PROMO_WORKERS` | `1` | Concurrent generation jobs; keep at 1 for predictable CPU usage |
 | `PROMO_MAX_UPLOAD_BYTES` | `1073741824` | Upload cap |
 | `PROMO_MAX_MUSIC_UPLOAD_BYTES` | `536870912` | Soundtrack upload cap |
-| `PROMO_VISION_API_KEY` | unset | Optional API key for audio + storyboard analysis |
+| `PROMO_VISION_API_KEY` | unset | Legacy optional OpenAI key for audio + storyboard analysis |
 | `PROMO_VISION_MODEL` | `gpt-4.1-mini` | Vision-capable model used for storyboard reasoning |
 | `PROMO_API_TRANSCRIBE_MODEL` | `whisper-1` | Timestamped API transcription model |
+| `PROMO_GEMINI_API_KEY` | unset | Optional Gemini API key (or enter it in the generation form) |
+| `PROMO_GEMINI_MODEL` | `gemini-3.8-flash` | Gemini model for edit interpretation and sampled-frame analysis |
+| `ELEVENLABS_API_KEY` | unset | Optional ElevenLabs API key (or enter it in the generation form) |
+| `PROMO_ELEVENLABS_MODEL` | `scribe_v2` | ElevenLabs speech-to-text model |
 | `PROMO_YOUTUBE_MAX_DURATION` | `7200` | Maximum accepted YouTube source length in seconds |
 | `PROMO_MAX_REPAIR_ITERATIONS` | `3` | Maximum critic repair passes (clamped to 1–5) |
 
@@ -136,17 +140,41 @@ privacy, and offline capability after the models are cached.
 
 ### API-assisted mode
 
-Set `PROMO_VISION_API_KEY` before starting Docker if you want the **Hybrid** or
-**Vision + audio API** modes. The hybrid mode automatically falls back to the
-local pipeline when the key is missing or the API is unavailable. The API mode
-surfaces an error instead, which makes configuration problems visible.
+Choose transcription and visual intelligence independently in the form:
+**Local Faster Whisper** or **ElevenLabs Scribe** for transcription, and
+**On-device / local analysis** or **Google Gemini** for visual intelligence.
+This supports either provider independently or both together. Hosted provider
+keys can be entered per generation or configured with the environment variables
+above. Local-only mode needs no hosted keys. Existing `PROMO_VISION_API_KEY`,
+`PROMO_VISION_MODEL`, and `PROMO_API_TRANSCRIBE_MODEL` settings remain available
+for legacy OpenAI API modes.
 
-The API workflow does not upload the original video as one opaque file. It
-extracts timestamped audio for transcription and a bounded storyboard of JPEG
-frames for visual reasoning, then combines those suggestions with local shot
-boundaries and safe FFmpeg rendering. Extracted WAV transcription is sent in
-temporary chunks of at most 18 MiB; model-proposed times are checked against
-source duration before they can become candidates.
+Gemini receives sampled JPEG frames with their source times and transcript
+context; its structured suggestions can score only intervals already found by
+local shot, motion, or dialogue analysis. It cannot create render timestamps.
+ElevenLabs receives an extracted mono 16 kHz, 16-bit PCM WAV through its Scribe
+speech-to-text endpoint. Word timing is preserved when returned; if only text
+is returned, it is marked as an approximate full-audio interval without
+invented word timings. The original local Faster Whisper path remains available.
+
+The frontend clears entered keys once the generation request is submitted.
+The app does not persist keys in job metadata, though clearing a field does not
+revoke a key or guarantee its removal from process or network infrastructure.
+Use HTTPS for hosted credentials outside local development.
+
+### Optional live provider check
+
+Unit tests mock external HTTP calls. To make real requests only when you
+explicitly supply credentials and short media samples, run from `backend/`:
+
+```bash
+PROMO_GEMINI_API_KEY=... ELEVENLABS_API_KEY=... \
+python scripts/test_provider_apis.py --video /path/to/short-video.mp4 --audio /path/to/short-16khz-mono.wav
+```
+
+The script extracts at most four frames, requires the ElevenLabs WAV sample to
+be at most 30 seconds, prints provider-specific `PASS` or `SKIP` results, and
+never prints credentials. It does not render a promo.
 
 ### YouTube input
 
