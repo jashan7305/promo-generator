@@ -1,35 +1,185 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>AI Promo Generator</title>
     <link rel="stylesheet" href="/frontend/css/index.css">
 </head>
 <body>
-    <h2>AI Promo Generator</h2>
+    <main class="app-shell">
+        <header class="app-header">
+            <div>
+                <p class="eyebrow">Local video tool</p>
+                <h1>AI Promo Generator</h1>
+                <p class="intro">Upload a trailer, describe the idea you want to surface, and generate a focused teaser.</p>
+            </div>
+            <span class="privacy-badge">Runs locally</span>
+        </header>
 
-    <form id="uploadForm">
-        <label for="videoFile">Upload MP4:</label>
-        <input type="file" id="videoFile" name="file" accept="video/mp4" required>
-        <br><br>
+        <section class="card generator-card">
+            <form id="uploadForm">
+                <div class="form-section">
+                    <div class="section-heading">
+                        <h2>Source video</h2>
+                        <span>MP4, MOV, M4V, WebM, MKV</span>
+                    </div>
+                    <label class="file-picker" for="videoFile">
+                        <span class="file-picker-title">Choose a trailer</span>
+                        <span class="file-picker-help">The video is validated and processed on this machine.</span>
+                        <input type="file" id="videoFile" name="file" accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.m4v,.webm,.mkv">
+                    </label>
+                    <p id="fileMeta" class="field-help">Maximum upload size: 1 GB.</p>
+                    <video id="sourcePreview" class="source-preview" controls muted playsinline hidden></video>
+                    <div class="or-divider"><span>or paste a YouTube link</span></div>
+                    <label class="field-label" for="youtubeUrl">YouTube video URL</label>
+                    <input class="text-input" type="url" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=...">
+                    <p class="field-help">Only use videos you own or have permission to download and edit.</p>
+                </div>
 
-        <label for="theme">Enter Theme:</label>
-        <input type="text" id="theme" name="theme" placeholder="e.g. innovation, teamwork" required>
-        <br><br>
+                <div class="form-section">
+                    <label class="field-label" for="theme">Describe the promo you want</label>
+                    <input class="text-input" type="text" id="theme" name="edit_prompt" maxlength="500" placeholder="e.g. A cinematic 45-second trailer that builds tension and ends on an emotional moment" required>
+                    <div class="preset-row" aria-label="Theme examples">
+                        <button type="button" class="preset" data-theme="save the world">save the world</button>
+                        <button type="button" class="preset" data-theme="a second chance">a second chance</button>
+                        <button type="button" class="preset" data-theme="the cost of ambition">the cost of ambition</button>
+                    </div>
+                </div>
 
-        <button type="submit">Generate Promo</button>
-    </form>
+                <div class="form-section">
+                    <div class="section-heading">
+                        <h2>Generation options</h2>
+                        <span>Optional controls</span>
+                    </div>
+                    <div class="options-grid">
+                        <div>
+                            <label class="field-label" for="targetDuration">Target length</label>
+                            <select class="select-input" id="targetDuration" name="target_duration">
+                                <option value="15">15 seconds</option>
+                                <option value="30" selected>30 seconds</option>
+                                <option value="45">45 seconds</option>
+                                <option value="60">60 seconds</option>
+                                <option value="90">90 seconds · short film</option>
+                                <option value="120">120 seconds · extended</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="field-label" for="energy">Creative direction</label>
+                            <select class="select-input" id="energy" name="energy">
+                                <option value="balanced" selected>Balanced · clear arc</option>
+                                <option value="cinematic">Cinematic · fewer beats</option>
+                                <option value="high-impact">High impact · sharper rhythm</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="field-label" for="aspectRatio">Output format</label>
+                            <select class="select-input" id="aspectRatio" name="aspect_ratio">
+                                <option value="source" selected>Source framing</option>
+                                <option value="vertical">Vertical · 9:16</option>
+                                <option value="square">Square · 1:1</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="field-label" for="strategy">Selection strategy</label>
+                            <select class="select-input" id="strategy" name="strategy">
+                                <option value="theme" selected>Theme + story arc</option>
+                                <option value="best-overall">Best overall moments</option>
+                                <option value="story-arc">Story arc first</option>
+                                <option value="visual-montage">Dialogue + visual peaks</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="field-label" for="analysisMode">Video analysis</label>
+                            <select class="select-input" id="analysisMode" name="analysis_mode">
+                                <option value="auto" selected>Hybrid · API if configured</option>
+                                <option value="local">Local audio + visual</option>
+                                <option value="api">Vision + audio API</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
 
-    <br>
-    <div id="status"></div>
+                <div class="form-section">
+                    <div class="section-heading">
+                        <h2>Soundtrack</h2>
+                        <span>Optional cinematic mix</span>
+                    </div>
+                    <label class="field-label" for="audioMode">Audio mix</label>
+                    <select class="select-input" id="audioMode" name="audio_mode">
+                        <option value="auto" selected>Automatic · original audio, mixed when music is uploaded</option>
+                        <option value="source">Original source audio</option>
+                        <option value="music">External music only</option>
+                        <option value="mixed">Music with source audio</option>
+                        <option value="dialogue">Dialogue-focused · source audio with low music</option>
+                    </select>
+                    <label class="file-picker" for="musicFile">
+                        <span class="file-picker-title">Add a music track</span>
+                        <span class="file-picker-help">The editor checks the track and can use it as the main score or mix it under source dialogue.</span>
+                        <input type="file" id="musicFile" accept="audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/aac,audio/flac,audio/ogg,audio/opus,audio/webm,.mp3,.wav,.m4a,.aac,.flac,.ogg,.opus,.webm">
+                    </label>
+                    <p id="musicMeta" class="field-help">MP3, WAV, M4A, AAC, FLAC, OGG, or OPUS · maximum 512 MB.</p>
+                </div>
 
-    <div id="downloadSection" style="display: none;">
-        <h3>Promo Ready!</h3>
-        <video id="promoVideo" width="480" controls></video>
-        <br>
-        <a id="downloadLink" href="#" download>Download Promo</a>
-    </div>
+                <button class="primary-button" id="submitButton" type="submit">Generate Promo</button>
+            </form>
+        </section>
 
+        <section class="card status-card" aria-live="polite">
+            <div class="status-heading">
+                <h2>Generation status</h2>
+                <span id="pipelineState">STANDBY</span>
+            </div>
+            <p id="status">Waiting for a video.</p>
+            <div class="progress-row"><div class="progress-track"><span id="progressBar"></span></div><span id="progressLabel">0%</span></div>
+            <ol id="stageList" class="stage-list">
+                <li data-stage="upload">Upload and validate</li>
+                <li data-stage="transcribe">Transcribe dialogue</li>
+                <li data-stage="rank">Rank story moments</li>
+                <li data-stage="music">Match soundtrack</li>
+                <li data-stage="export">Cut and export</li>
+            </ol>
+        </section>
+
+        <section id="downloadSection" class="card result-card" hidden aria-labelledby="resultTitle">
+            <div class="result-heading">
+                <div>
+                    <p class="eyebrow">Completed</p>
+                    <h2 id="resultTitle">Promo Ready</h2>
+                </div>
+                <a id="downloadLink" class="download-button" href="#" download="promo.mp4">Download Promo</a>
+            </div>
+            <video id="promoVideo" controls playsinline></video>
+            <div class="result-summary">
+                <p id="resultSummary">Your selected moments are shown below.</p>
+                <span id="resultDirection">BALANCED · SOURCE</span>
+            </div>
+            <p id="resultAnalysis" class="analysis-note"></p>
+            <div class="metrics">
+                <div><strong id="resultDuration">—</strong><span>seconds</span></div>
+                <div><strong id="resultClips">—</strong><span>moments</span></div>
+                <div><strong id="resultTranscript">—</strong><span>lines heard</span></div>
+            </div>
+            <div class="clip-sheet">
+                <h3>Selected moments</h3>
+                <ol id="clipList"></ol>
+            </div>
+            <div class="script-sheet">
+                <h3>Trailer script</h3>
+                <p id="scriptLogline"></p>
+                <div class="script-columns">
+                    <div><strong>Voiceover / dialogue</strong><ul id="scriptVoiceover"></ul></div>
+                    <div><strong>Text cards</strong><ul id="scriptTextCards"></ul></div>
+                </div>
+                <div><strong>Beat order</strong><ol id="scriptBeats"></ol></div>
+            </div>
+            <div class="agent-report">
+                <h3>Agent report</h3>
+                <p id="agentSummary"></p>
+                <ol id="agentTrace"></ol>
+            </div>
+        </section>
+    </main>
     <script src="/frontend/js/index.js"></script>
 </body>
 </html>

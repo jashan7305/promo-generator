@@ -52,3 +52,4 @@ typing-extensions==4.15.0
 typing-inspection==0.4.2
 urllib3==2.5.0
 uvicorn==0.37.0
+yt-dlp==2026.10.21
