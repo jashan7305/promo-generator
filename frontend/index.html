@@ -27,15 +27,19 @@
                     <label class="file-picker" for="videoFile">
                         <span class="file-picker-title">Choose a trailer</span>
                         <span class="file-picker-help">The video is validated and processed on this machine.</span>
-                        <input type="file" id="videoFile" name="file" accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.m4v,.webm,.mkv" required>
+                        <input type="file" id="videoFile" name="file" accept="video/mp4,video/quicktime,video/webm,video/x-matroska,.mp4,.mov,.m4v,.webm,.mkv">
                     </label>
                     <p id="fileMeta" class="field-help">Maximum upload size: 1 GB.</p>
                     <video id="sourcePreview" class="source-preview" controls muted playsinline hidden></video>
+                    <div class="or-divider"><span>or paste a YouTube link</span></div>
+                    <label class="field-label" for="youtubeUrl">YouTube video URL</label>
+                    <input class="text-input" type="url" id="youtubeUrl" placeholder="https://www.youtube.com/watch?v=...">
+                    <p class="field-help">Only use videos you own or have permission to download and edit.</p>
                 </div>
 
                 <div class="form-section">
-                    <label class="field-label" for="theme">Theme or story idea</label>
-                    <input class="text-input" type="text" id="theme" name="theme" maxlength="160" placeholder="e.g. save the world, a second chance, the cost of ambition" required>
+                    <label class="field-label" for="theme">Describe the promo you want</label>
+                    <input class="text-input" type="text" id="theme" name="edit_prompt" maxlength="500" placeholder="e.g. A cinematic 45-second trailer that builds tension and ends on an emotional moment" required>
                     <div class="preset-row" aria-label="Theme examples">
                         <button type="button" class="preset" data-theme="save the world">save the world</button>
                         <button type="button" class="preset" data-theme="a second chance">a second chance</button>
@@ -96,6 +100,27 @@
                     </div>
                 </div>
 
+                <div class="form-section">
+                    <div class="section-heading">
+                        <h2>Soundtrack</h2>
+                        <span>Optional cinematic mix</span>
+                    </div>
+                    <label class="field-label" for="audioMode">Audio mix</label>
+                    <select class="select-input" id="audioMode" name="audio_mode">
+                        <option value="auto" selected>Automatic · original audio, mixed when music is uploaded</option>
+                        <option value="source">Original source audio</option>
+                        <option value="music">External music only</option>
+                        <option value="mixed">Music with source audio</option>
+                        <option value="dialogue">Dialogue-focused · source audio with low music</option>
+                    </select>
+                    <label class="file-picker" for="musicFile">
+                        <span class="file-picker-title">Add a music track</span>
+                        <span class="file-picker-help">The editor checks the track and can use it as the main score or mix it under source dialogue.</span>
+                        <input type="file" id="musicFile" accept="audio/mpeg,audio/wav,audio/x-wav,audio/mp4,audio/aac,audio/flac,audio/ogg,audio/opus,audio/webm,.mp3,.wav,.m4a,.aac,.flac,.ogg,.opus,.webm">
+                    </label>
+                    <p id="musicMeta" class="field-help">MP3, WAV, M4A, AAC, FLAC, OGG, or OPUS · maximum 512 MB.</p>
+                </div>
+
                 <button class="primary-button" id="submitButton" type="submit">Generate Promo</button>
             </form>
         </section>
@@ -111,6 +136,7 @@
                 <li data-stage="upload">Upload and validate</li>
                 <li data-stage="transcribe">Transcribe dialogue</li>
                 <li data-stage="rank">Rank story moments</li>
+                <li data-stage="music">Match soundtrack</li>
                 <li data-stage="export">Cut and export</li>
             </ol>
         </section>
@@ -146,6 +172,11 @@
                     <div><strong>Text cards</strong><ul id="scriptTextCards"></ul></div>
                 </div>
                 <div><strong>Beat order</strong><ol id="scriptBeats"></ol></div>
+            </div>
+            <div class="agent-report">
+                <h3>Agent report</h3>
+                <p id="agentSummary"></p>
+                <ol id="agentTrace"></ol>
             </div>
         </section>
     </main>

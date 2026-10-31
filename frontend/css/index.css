@@ -48,6 +48,8 @@ h3 { margin-bottom: 12px; font-size: 15px; }
 .file-picker input { margin-top: 8px; font-size: 13px; }
 .field-help { margin: 7px 0 0; }
 .source-preview { width: 100%; max-height: 260px; margin-top: 14px; border-radius: 8px; background: #111827; }
+.or-divider { display: flex; align-items: center; gap: 10px; margin: 17px 0 14px; color: #9ca3af; font-size: 12px; }
+.or-divider::before, .or-divider::after { content: ''; flex: 1; height: 1px; background: #edf0f2; }
 
 .field-label { display: block; margin-bottom: 7px; font-size: 13px; font-weight: 600; }
 .text-input, .select-input { width: 100%; min-height: 42px; padding: 9px 11px; color: var(--text); border: 1px solid var(--border-strong); border-radius: 7px; outline: none; background: var(--surface); }
@@ -69,7 +71,7 @@ h3 { margin-bottom: 12px; font-size: 15px; }
 .progress-track { flex: 1; height: 6px; overflow: hidden; border-radius: 999px; background: #e5e7eb; }
 .progress-track span { display: block; width: 0; height: 100%; border-radius: inherit; background: var(--accent); transition: width .3s ease; }
 #progressLabel { min-width: 38px; color: var(--muted); font-size: 12px; text-align: right; }
-.stage-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; }
+.stage-list { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; }
 .stage-list li { padding-top: 8px; color: #9ca3af; border-top: 2px solid #e5e7eb; font-size: 12px; }
 .stage-list li.is-active { color: var(--accent); border-color: #93c5fd; }
 .stage-list li.is-done { color: var(--success); border-color: #86efac; }
@@ -99,6 +101,9 @@ h3 { margin-bottom: 12px; font-size: 15px; }
 .script-sheet strong { display: block; margin-bottom: 7px; font-size: 12px; }
 .script-sheet ul, .script-sheet ol { margin: 0; padding-left: 20px; color: var(--muted); font-size: 13px; }
 .script-sheet li + li { margin-top: 6px; }
+.agent-report { margin-top: 24px; padding-top: 22px; border-top: 1px solid #edf0f2; }
+.agent-report > p { color: var(--muted); font-size: 13px; }
+.agent-report ol { display: grid; gap: 6px; margin: 0; padding-left: 20px; color: var(--muted); font-size: 12px; }
 [hidden] { display: none !important; }
 
 @media (max-width: 700px) {

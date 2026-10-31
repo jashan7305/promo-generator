@@ -1,0 +1,337 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [6 0 R 8 0 R 10 0 R 12 0 R 14 0 R 16 0 R] /Count 6 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+5 0 obj
+<< /Length 5557 >>
+stream
+BT /F2 23 Tf 0.08 0.20 0.31 rg 1 0 0 1 54 738.0 Tm (Framecut / Promo Generator) Tj ET
+BT /F2 16 Tf 0.08 0.31 0.42 rg 1 0 0 1 54 702.0 Tm (Project explanation and presentation guide) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 674.0 Tm (Purpose: a step-by-step explanation of how this application turns a source video and an editing) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 661.6 Tm (brief into a short promo.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 642.2 Tm (Based on the repository implementation) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 629.8 Tm (Prepared 31 October 2026) Tj ET
+BT /F2 16 Tf 0.08 0.31 0.42 rg 1 0 0 1 54 610.4 Tm (1. The short explanation to open with) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 582.4 Tm ("Framecut is a web application that creates a short promotional video from a longer video. The user) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 570.0 Tm (supplies a video or a supported YouTube link, a theme or natural-language editing request, and) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 557.6 Tm (optional creative, format, and soundtrack settings. The backend analyzes speech, audio energy,) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 545.2 Tm (motion, and shot changes. It ranks usable moments, plans an edit, and uses FFmpeg to cut and export) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 532.8 Tm (the result. It can run with local models, or use optional API analysis for a second opinion.") Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 513.4 Tm (The project is an automated media-analysis and editing pipeline. Its machine-learning models are) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 501.0 Tm (used for inference. The repository does not train those models.) Tj ET
+BT /F2 16 Tf 0.08 0.31 0.42 rg 1 0 0 1 54 481.6 Tm (2. Step-by-step: what happens from input to export) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 453.6 Tm (Step 1 - The user sets the brief) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 431.6 Tm (In the browser, the user chooses a video file or enters a YouTube URL, writes a theme/edit prompt,) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 419.2 Tm (and selects settings such as target duration, creative direction, aspect ratio, selection strategy,) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 406.8 Tm (analysis mode, and audio mode. An optional soundtrack can also be uploaded. The frontend checks) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 394.4 Tm (basic requirements such as file size, presence of a source and a theme, and whether music is) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 382.0 Tm (required by the selected audio mode.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 362.6 Tm (Step 2 - The backend receives and validates media) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 340.6 Tm (backend/api/router.py exposes upload endpoints. Video and music are streamed into per-upload storage) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 328.2 Tm (with configured size caps. The YouTube endpoint validates/normalizes supported single-video links) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 315.8 Tm (and downloads the source through yt-dlp. The application probes media metadata and rejects invalid) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 303.4 Tm (or unsupported inputs. Random IDs and safe path resolution keep uploads and generated jobs isolated.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 284.0 Tm (Step 3 - A background generation job is queued) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 262.0 Tm (The frontend sends the upload IDs and selected settings to /api/generate. The API validates the) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 249.6 Tm (accepted values, creates a job record, and submits work to a thread pool. The browser polls) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 237.2 Tm (/api/jobs/{job_id} to show progress. The default worker count is one, which limits simultaneous) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 224.8 Tm (heavy CPU jobs.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 205.4 Tm (Step 4 - The edit request is interpreted) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 183.4 Tm (interpret_edit_request turns the natural-language prompt and form settings into bounded, validated) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 171.0 Tm (controls: theme, length, pacing, content preferences, and narrative direction. When API-assisted) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 158.6 Tm (analysis is enabled and configured, an optional model may refine those controls. Local rules still) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 146.2 Tm (provide the offline path, and source timestamps are determined later from media evidence.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 126.8 Tm (Step 5 - Media metadata and audio are prepared) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 104.8 Tm (FFprobe/FFmpeg inspect the source. If it has audio, the backend extracts a working audio file and) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 92.4 Tm (measures short-window RMS energy. If a soundtrack was uploaded, it is inspected separately; its) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 80.0 Tm (energy, beat accents, sections, and possible tempo are estimated to help choose an excerpt and match) Tj ET
+BT /F1 8 Tf 0.42 0.45 0.48 rg 1 0 0 1 54 30 Tm (FRAMECUT PROJECT EXPLANATION) Tj ET
+BT /F1 8 Tf 0.42 0.45 0.48 rg 1 0 0 1 520 30 Tm (PAGE 1) Tj ET
+endstream
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 5 0 R >>
+endobj
+7 0 obj
+<< /Length 5996 >>
+stream
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 738.0 Tm (moments to music.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 718.6 Tm (Step 6 - Speech is transcribed) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 696.6 Tm (In local mode, Faster-Whisper produces timestamped speech segments. In API or hybrid mode, the) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 684.2 Tm (configured transcription API may be tried first; hybrid mode falls back to local transcription if) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 671.8 Tm (the API path fails. Segments are merged into dialogue beats and split into sentence-level intervals) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 659.4 Tm (so selection and final audio handling can preserve complete thoughts. Videos without speech can) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 647.0 Tm (continue through visual candidates.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 627.6 Tm (Step 7 - Visual rhythm is measured) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 605.6 Tm (The local pipeline detects shot boundaries and calculates a motion profile. It scores dialogue) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 593.2 Tm (intervals for energy, motion, and visual change. It also builds visual-only candidates for useful) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 580.8 Tm (non-dialogue moments and can keep an opening-shot candidate. This lets the system work when dialogue) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 568.4 Tm (is sparse or absent.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 549.0 Tm (Step 8 - Optional storyboard analysis adds suggestions) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 527.0 Tm (In API/hybrid mode with a configured key, the application samples a bounded storyboard and sends) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 514.6 Tm (selected frames and context to a vision-capable model. The model can suggest descriptions and) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 502.2 Tm (moments. These suggestions are mapped onto the source timeline and combined with local evidence;) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 489.8 Tm (they do not bypass source-duration checks or the local render validations.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 470.4 Tm (Step 9 - Candidates are scored and selected) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 448.4 Tm (Dialogue and visual moments receive scores based on the chosen strategy. For dialogue, signals) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 436.0 Tm (include semantic theme similarity, literal keyword overlap, transcription confidence, language) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 423.6 Tm (quality/coherence, energy, visual change, motion, optional API relevance, and soundtrack fit. The) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 411.2 Tm (selector also considers duration, coverage, diversity, and narrative roles. If no dialogue is found,) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 398.8 Tm (the theme strategy is switched to visual-montage behavior.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 379.4 Tm (Step 10 - A structured draft is assembled and critiqued) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 357.4 Tm (The system expands selected timestamps with safe context, snaps cuts toward shot boundaries, repairs) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 345.0 Tm (dialogue edges, separates overlapping context, and fits the clip set to the time budget. It checks) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 332.6 Tm (whether the draft has adequate coverage and whether speech was cut or a transcription artifact was) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 320.2 Tm (selected. It can repair the draft for a bounded number of passes \(default three; maximum five\).) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 300.8 Tm (Step 11 - The soundtrack and dialogue timeline are prepared) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 278.8 Tm (For music modes, the system selects a suitable excerpt and maps dialogue intervals onto the output) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 266.4 Tm (timeline. It identifies source-audio intervals that should be muted to avoid leaving an unintended) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 254.0 Tm (partial spoken line across a cut. It validates dialogue timing against the selected clips and audio) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 241.6 Tm (mode before rendering.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 222.2 Tm (Step 12 - FFmpeg renders the promo) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 200.2 Tm (The source clips are stitched into an MP4. Output framing can preserve source dimensions, crop to) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 187.8 Tm (vertical 9:16, or crop to square 1:1. Audio can use the source, external music, a mix, or) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 175.4 Tm (dialogue-focused mixing. Music can be ducked under selected dialogue where the chosen mode calls for) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 163.0 Tm (it.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 143.6 Tm (Step 13 - Render quality checks run) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 121.6 Tm (The application checks that the output can be probed/decoded, that its duration is within the) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 109.2 Tm (expected range, that the aspect ratio is correct, and that structural/dialogue timeline validations) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 96.8 Tm (passed. This is media validation; it does not perform speech recognition on the final rendered video) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 84.4 Tm (or replace a human listening review.) Tj ET
+BT /F1 8 Tf 0.42 0.45 0.48 rg 1 0 0 1 54 30 Tm (FRAMECUT PROJECT EXPLANATION) Tj ET
+BT /F1 8 Tf 0.42 0.45 0.48 rg 1 0 0 1 520 30 Tm (PAGE 2) Tj ET
+endstream
+endobj
+8 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 7 0 R >>
+endobj
+9 0 obj
+<< /Length 6150 >>
+stream
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 738.0 Tm (Step 14 - The result is returned) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 716.0 Tm (The job status becomes complete and the API returns a safe download URL plus metadata: selected) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 703.6 Tm (clips, source and output timestamps, script outline, analysis provider, iteration trace, soundtrack) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 691.2 Tm (details, and QA report. The frontend displays the video, cut sheet, script outline, and generation) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 678.8 Tm (summary.) Tj ET
+BT /F2 16 Tf 0.08 0.31 0.42 rg 1 0 0 1 54 659.4 Tm (3. Models and what "training" means here) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 631.4 Tm (Faster-Whisper \(default model size: base\)) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 609.4 Tm (This is the local speech-recognition component. It is a faster implementation of Whisper using) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 597.0 Tm (CTranslate2. The application loads the selected pretrained checkpoint and runs transcription. It) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 584.6 Tm (does not fine-tune Whisper on project videos. The default device is CPU and the default compute type) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 572.2 Tm (is int8, a practical memory/speed choice for CPU inference. A different model size, device, or) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 559.8 Tm (compute type can be set through environment variables.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 540.4 Tm (E5 sentence embeddings \(default: Xenova/e5-small-v2\)) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 518.4 Tm (This pretrained embedding model represents theme queries and dialogue passages as vectors. The code) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 506.0 Tm (uses the model's recommended query: prefix for the theme and passage: prefix for dialogue, tokenizes) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 493.6 Tm (up to 256 tokens, mean-pools token outputs using the attention mask, and normalizes vectors. Cosine) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 481.2 Tm (similarity is then used as a semantic relevance signal. The ONNX model runs through ONNX Runtime on) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 468.8 Tm (CPU. On first use, model files are downloaded and cached under the model directory. If) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 456.4 Tm (loading/inference fails, literal keyword overlap is the fallback. The embedding model is not trained) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 444.0 Tm (here.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 424.6 Tm (Optional API models) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 402.6 Tm (When configured, the API transcription model \(whisper-1 by default\) can provide speech) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 390.2 Tm (transcription, while the vision-capable model \(gpt-4.1-mini by default\) can reason over sampled) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 377.8 Tm (storyboard frames and the editing request. They are optional services; the local pathway remains) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 365.4 Tm (available. API requests can send extracted audio chunks and storyboard images, rather than uploading) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 353.0 Tm (the original video as a single opaque asset.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 333.6 Tm (Are hyperparameters trained or tuned?) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 311.6 Tm (There is no dataset-driven hyperparameter training or automatic optimization loop in this) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 299.2 Tm (repository. The "hyperparameters" visible here are inference settings and manually chosen decision) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 286.8 Tm (parameters, not learned weights. Examples include model size, CPU/int8 inference, maximum token) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 274.4 Tm (length, ranking weights, clip lengths, audio-analysis window size, repair-pass limit, and worker) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 262.0 Tm (count. The score weights in score_dialogues are explicit constants selected in code for each) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 249.6 Tm (strategy. The draft critic can repair an individual edit, but it is not model training or parameter) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 237.2 Tm (tuning.) Tj ET
+BT /F2 16 Tf 0.08 0.31 0.42 rg 1 0 0 1 54 217.8 Tm (4. How the ranking works, in plain language) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 189.8 Tm (For each dialogue beat, the code calculates normalized indicators: semantic match, word overlap, ASR) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 177.4 Tm (confidence, sentence quality/coherence, audio energy, visual change, motion, API score, and \(when) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 165.0 Tm (available\) soundtrack match. A strategy selects a fixed weighting profile:) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 145.6 Tm (Strategy   *   What it favors) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 133.2 Tm (theme   *   Strong theme relevance, with supporting quality and audiovisual signals) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 120.8 Tm (best-overall   *   Strong general moments, with less dependence on theme wording) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 108.4 Tm (story-arc   *   Theme relevance plus narrative and story coverage) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 96.0 Tm (visual-montage   *   Visual change, motion, and energy; useful for montage or no-dialogue input) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 76.6 Tm (The resulting score is one part of selection. The selector also tries to cover the target duration,) Tj ET
+BT /F1 8 Tf 0.42 0.45 0.48 rg 1 0 0 1 54 30 Tm (FRAMECUT PROJECT EXPLANATION) Tj ET
+BT /F1 8 Tf 0.42 0.45 0.48 rg 1 0 0 1 520 30 Tm (PAGE 3) Tj ET
+endstream
+endobj
+10 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 9 0 R >>
+endobj
+11 0 obj
+<< /Length 5322 >>
+stream
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 738.0 Tm (avoid redundant moments, preserve narrative order when requested, and assign beats roles such as) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 725.6 Tm (hook, setup, escalation, or ending. These choices are rule-based heuristics, not a separately) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 713.2 Tm (trained ranking model.) Tj ET
+BT /F2 16 Tf 0.08 0.31 0.42 rg 1 0 0 1 54 693.8 Tm (5. User-facing configurations) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 665.8 Tm (Analysis mode) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 643.8 Tm (*  Local: uses local transcription and local visual/audio analysis. This is the offline-first option) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 631.4 Tm (after model files are cached.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 619.0 Tm (*  Hybrid / auto: uses API-assisted transcription/storyboard analysis when a key is configured, then) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 606.6 Tm (falls back to local analysis for supported failures.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 594.2 Tm (*  Vision + audio API: explicitly requires a configured API key; API errors are surfaced rather than) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 581.8 Tm (silently treated as a successful API run.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 562.4 Tm (Selection strategy) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 540.4 Tm (*  Theme + story arc \(theme\): balances the brief with story coverage; default.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 528.0 Tm (*  Best overall \(best-overall\): favors broadly strong audiovisual/dialogue moments.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 515.6 Tm (*  Story arc first \(story-arc\): emphasizes a coherent progression.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 503.2 Tm (*  Dialogue + visual peaks \(visual-montage\): gives greater priority to motion and visual change.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 483.8 Tm (Creative direction) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 461.8 Tm (*  Balanced: moderate context and clip-length limits.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 449.4 Tm (*  Cinematic: fewer, longer moments and more surrounding context.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 437.0 Tm (*  High impact: shorter clips and tighter pacing.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 417.6 Tm (The implementation uses different context padding and maximum clip durations for these directions;) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 405.2 Tm (the target duration remains one of 15, 30, 45, 60, 90, or 120 seconds.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 385.8 Tm (Aspect ratio) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 363.8 Tm (*  Source: preserve the source framing.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 351.4 Tm (*  Vertical: crop/reframe for 9:16.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 339.0 Tm (*  Square: crop/reframe for 1:1.) Tj ET
+BT /F2 11.5 Tf 0.12 0.24 0.34 rg 1 0 0 1 54 319.6 Tm (Audio mode) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 297.6 Tm (*  Auto: use source audio by default; use a mixed soundtrack when music is supplied.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 285.2 Tm (*  Source: original source audio only; an uploaded music track is not used.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 272.8 Tm (*  Music: external music only; requires a soundtrack.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 260.4 Tm (*  Mixed: soundtrack with source audio; requires a soundtrack.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 248.0 Tm (*  Dialogue: source audio/dialogue is foregrounded with lower music when supplied.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 228.6 Tm (The backend validates incompatible combinations. Selected dialogue is mapped to output time so) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 216.2 Tm (soundtrack ducking and safe source-audio muting can be applied.) Tj ET
+BT /F2 16 Tf 0.08 0.31 0.42 rg 1 0 0 1 54 196.8 Tm (6. Important files and their responsibilities) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 168.8 Tm (File   *   Responsibility) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 156.4 Tm (frontend/index.html   *   Web form, controls, progress display, preview, download, cut sheet, script) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 144.0 Tm (and agent report sections.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 131.6 Tm (frontend/js/index.js   *   Validates browser inputs, uploads media, submits generation settings,) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 119.2 Tm (polls job status, and renders the result.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 106.8 Tm (frontend/css/index.css   *   Layout, styling, and responsive behavior of the web interface.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 94.4 Tm (backend/main.py   *   Creates the FastAPI app, mounts API routes and frontend assets, and serves the) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 82.0 Tm (home page.) Tj ET
+BT /F1 8 Tf 0.42 0.45 0.48 rg 1 0 0 1 54 30 Tm (FRAMECUT PROJECT EXPLANATION) Tj ET
+BT /F1 8 Tf 0.42 0.45 0.48 rg 1 0 0 1 520 30 Tm (PAGE 4) Tj ET
+endstream
+endobj
+12 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 11 0 R >>
+endobj
+13 0 obj
+<< /Length 6866 >>
+stream
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 738.0 Tm (backend/api/router.py   *   Upload and URL-download endpoints, validation, isolated storage paths,) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 725.6 Tm (job queue/status, and safe promo downloads.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 713.2 Tm (backend/logic/logic.py   *   Main media pipeline: models, transcription, analysis, scoring, edit) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 700.8 Tm (planning, FFmpeg rendering, and output validation.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 688.4 Tm (backend/tests/test_logic.py   *   Unit tests for logic and safety behavior.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 676.0 Tm (backend/scripts/validate_synthetic_dialogue.py   *   macOS validation utility that creates synthetic) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 663.6 Tm (speech/media fixtures and exercises audio modes through the generation pipeline; requires FFmpeg,) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 651.2 Tm (ffprobe, and say.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 638.8 Tm (backend/requirements.txt   *   Pinned Python dependency list for a pip-based setup.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 626.4 Tm (backend/pyproject.toml   *   Project metadata and dependency declarations for uv.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 614.0 Tm (backend/uv.lock   *   Locked dependency resolution used by the Docker build for reproducibility.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 601.6 Tm (backend/Dockerfile   *   Builds the backend image, installs FFmpeg and Node.js, syncs Python) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 589.2 Tm (dependencies, and launches Uvicorn.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 576.8 Tm (compose.yaml   *   Runs the container, exposes local port 8000, persists storage/model cache) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 564.4 Tm (volumes, and configures health checks/API settings.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 552.0 Tm (README.md   *   Setup instructions, product capabilities, environment variables, modes, and usage) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 539.6 Tm (notes.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 527.2 Tm (example_video/avengers.mp4   *   Example source video for trying the application.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 514.8 Tm (generated_example_promo/promo.mp4   *   Example rendered output.) Tj ET
+BT /F2 16 Tf 0.08 0.31 0.42 rg 1 0 0 1 54 495.4 Tm (7. Runtime configuration reference) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 467.4 Tm (Variable   *   Default   *   Effect) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 455.0 Tm (PROMO_WHISPER_MODEL   *   base   *   Local Faster-Whisper model size/checkpoint.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 442.6 Tm (PROMO_WHISPER_DEVICE   *   cpu   *   Inference device for Faster-Whisper.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 430.2 Tm (PROMO_WHISPER_COMPUTE_TYPE   *   int8   *   CTranslate2 compute/quantization mode.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 417.8 Tm (PROMO_EMBEDDING_MODEL   *   Xenova/e5-small-v2   *   Hugging Face embedding model ID.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 405.4 Tm (PROMO_MODEL_DIR   *   backend/models   *   Local cache directory for embedding model files.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 393.0 Tm (PROMO_STORAGE_DIR   *   backend/storage   *   Upload and generated output storage root.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 380.6 Tm (PROMO_WORKERS   *   1   *   Maximum background generation threads; clamped to at least one.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 368.2 Tm (PROMO_MAX_UPLOAD_BYTES   *   1073741824 \(1 GiB\)   *   Maximum video upload size.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 355.8 Tm (PROMO_MAX_MUSIC_UPLOAD_BYTES   *   536870912 \(512 MiB\)   *   Maximum soundtrack upload size.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 343.4 Tm (PROMO_VISION_API_KEY   *   unset   *   Enables optional API-assisted analysis. OPENAI_API_KEY is) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 331.0 Tm (also accepted by the logic module.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 318.6 Tm (PROMO_VISION_MODEL   *   gpt-4.1-mini   *   Vision-capable model for storyboard reasoning.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 306.2 Tm (PROMO_API_TRANSCRIBE_MODEL   *   whisper-1   *   API speech transcription model.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 293.8 Tm (PROMO_API_TIMEOUT_SECONDS   *   120   *   Request timeout for API calls.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 281.4 Tm (PROMO_YOUTUBE_MAX_DURATION   *   7200 seconds   *   Maximum accepted YouTube source duration.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 269.0 Tm (PROMO_MAX_REPAIR_ITERATIONS   *   3   *   Draft critic passes; clamped to the range 1-5.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 249.6 Tm (In Docker Compose, the documented API and music-upload values are passed through the environment.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 237.2 Tm (Other variables can be added to the service environment as needed.) Tj ET
+BT /F2 16 Tf 0.08 0.31 0.42 rg 1 0 0 1 54 217.8 Tm (8. Suggested presentation script) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 189.8 Tm (1. Introduce the goal: "This system automates the first cut of a promo from a longer video, guided) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 177.4 Tm (by a theme and optional editing preferences.") Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 165.0 Tm (2. Show the user inputs: Explain source, theme, duration, direction, aspect ratio, strategy,) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 152.6 Tm (analysis mode, and soundtrack.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 140.2 Tm (3. Explain the model choice: Faster-Whisper detects speech; E5 represents the theme and dialogue for) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 127.8 Tm (semantic matching. Both are pretrained inference models.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 115.4 Tm (4. Explain the analysis signals: Speech is combined with confidence, sentence quality, audio energy,) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 103.0 Tm (shot changes, and motion. Optional API storyboard analysis adds visual descriptions.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 90.6 Tm (5. Explain selection: Fixed strategy weights rank moments; coverage, diversity, and narrative) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 78.2 Tm (structure help make a coherent sequence.) Tj ET
+BT /F1 8 Tf 0.42 0.45 0.48 rg 1 0 0 1 54 30 Tm (FRAMECUT PROJECT EXPLANATION) Tj ET
+BT /F1 8 Tf 0.42 0.45 0.48 rg 1 0 0 1 520 30 Tm (PAGE 5) Tj ET
+endstream
+endobj
+14 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 13 0 R >>
+endobj
+15 0 obj
+<< /Length 2561 >>
+stream
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 738.0 Tm (6. Explain assembly: The system fits clips to the time budget, protects dialogue boundaries, aligns) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 725.6 Tm (optional music, and renders with FFmpeg.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 713.2 Tm (7. Explain validation and output: It checks duration, aspect ratio, decoding, and timeline) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 700.8 Tm (constraints, then returns the promo and a cut sheet.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 688.4 Tm (8. Clarify training: "The repository does not train neural networks. We use pretrained models and) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 676.0 Tm (configure inference/runtime settings and hand-designed ranking weights.") Tj ET
+BT /F2 16 Tf 0.08 0.31 0.42 rg 1 0 0 1 54 656.6 Tm (9. Practical limits to mention) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 628.6 Tm (*  This is an automated first edit; creative quality still depends on the source material and) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 616.2 Tm (specificity of the prompt.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 603.8 Tm (*  Semantic similarity is a relevance clue, not proof that the system understands a film's full) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 591.4 Tm (plot.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 579.0 Tm (*  Local operation may require downloading model files the first time; afterward cached models can) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 566.6 Tm (be used without API analysis.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 554.2 Tm (*  API modes depend on network access, valid credentials, and external service availability.) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 541.8 Tm (*  Render validation checks media and timeline properties, but it does not replace watching and) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 529.4 Tm (listening to the final promo.) Tj ET
+BT /F2 16 Tf 0.08 0.31 0.42 rg 1 0 0 1 54 510.0 Tm (10. One-sentence summary) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 482.0 Tm (Framecut combines pretrained speech and text models with deterministic audio/visual measurements and) Tj ET
+BT /F1 9.1 Tf 0.13 0.15 0.18 rg 1 0 0 1 54 469.6 Tm (rule-based editing heuristics, then uses FFmpeg to render and validate a theme-guided promo.) Tj ET
+BT /F1 8 Tf 0.42 0.45 0.48 rg 1 0 0 1 54 30 Tm (FRAMECUT PROJECT EXPLANATION) Tj ET
+BT /F1 8 Tf 0.42 0.45 0.48 rg 1 0 0 1 520 30 Tm (PAGE 6) Tj ET
+endstream
+endobj
+16 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents 15 0 R >>
+endobj
+xref
+0 17
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000155 00000 n 
+0000000225 00000 n 
+0000000300 00000 n 
+0000005909 00000 n 
+0000006045 00000 n 
+0000012093 00000 n 
+0000012229 00000 n 
+0000018431 00000 n 
+0000018568 00000 n 
+0000023943 00000 n 
+0000024081 00000 n 
+0000031000 00000 n 
+0000031138 00000 n 
+0000033752 00000 n 
+trailer
+<< /Size 17 /Root 1 0 R >>
+startxref
+33890
+%%EOF

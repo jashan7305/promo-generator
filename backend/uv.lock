@@ -75,6 +75,7 @@ dependencies = [
     { name = "scikit-learn" },
     { name = "transformers" },
     { name = "uvicorn" },
+    { name = "yt-dlp" },
 ]
 
 [package.metadata]
@@ -89,6 +90,7 @@ requires-dist = [
     { name = "scikit-learn", specifier = ">=1.7.2" },
     { name = "transformers", specifier = ">=4.57.1" },
     { name = "uvicorn", specifier = ">=0.37.0" },
+    { name = "yt-dlp", specifier = ">=2025.10.22" },
 ]
 
 [[package]]
@@ -899,4 +901,13 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/71/57/1616c8274c3442d802621abf5deb230771c7a0fec9414cb6763900eb3868/uvicorn-0.37.0.tar.gz", hash = "sha256:4115c8add6d3fd536c8ee77f0e14a7fd2ebba939fed9b02583a97f80648f9e13", size = 80367, upload-time = "2025-09-23T13:33:47.486Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/85/cd/584a2ceb5532af99dd09e50919e3615ba99aa127e9850eafe5f31ddfdb9a/uvicorn-0.37.0-py3-none-any.whl", hash = "sha256:913b2b88672343739927ce381ff9e2ad62541f9f8289664fa1d1d3803fa2ce6c", size = 67976, upload-time = "2025-09-23T13:33:45.842Z" },
+]
+
+[[package]]
+name = "yt-dlp"
+version = "2026.10.21"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/06/13/d2ea252871826205dc4965cb70e6037ab93697fcabf4feda49fe981f6da0/yt_dlp-2026.10.21.tar.gz", hash = "sha256:cbf748d7d17cd37647c4b9f07b6c25f24384bfd4361407ee5ec519e753d22539", size = 3057326, upload-time = "2026-10-21T21:54:53.563Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b7/75/ae700ddc7e0b1095fd06cf7e251627dcf4cafcaff460cce92cdc08023b13/yt_dlp-2026.10.21-py3-none-any.whl", hash = "sha256:94a3a3e2c423129d0bbd2f1be000c4171fa1226c29e251c84aff868f2851c247", size = 3188012, upload-time = "2026-10-21T21:54:50.808Z" },
 ]
