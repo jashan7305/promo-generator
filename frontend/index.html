@@ -90,18 +90,29 @@
                             </select>
                         </div>
                         <div>
-                            <label class="field-label" for="transcriptionProvider">Transcription</label>
-                            <select class="select-input" id="transcriptionProvider" name="transcription_provider">
-                                <option value="local" selected>Local Faster Whisper</option>
-                                <option value="elevenlabs">ElevenLabs Scribe</option>
+                            <label class="field-label" for="analysisMode">Analysis mode</label>
+                            <select class="select-input" id="analysisMode" name="analysis_mode">
+                                <option value="providers" selected>Custom providers (choose below)</option>
+                                <option value="local">Fully local (Whisper + on-device vision)</option>
+                                <option value="gemini">Google Gemini (visual only, local transcription)</option>
+                                <option value="elevenlabs">ElevenLabs Scribe (transcription only, local vision)</option>
                             </select>
                         </div>
-                        <div>
-                            <label class="field-label" for="visualProvider">Visual intelligence</label>
-                            <select class="select-input" id="visualProvider" name="visual_provider">
-                                <option value="local" selected>On-device / local analysis</option>
-                                <option value="gemini">Google Gemini</option>
-                            </select>
+                        <div id="providerSelectors">
+                            <div>
+                                <label class="field-label" for="transcriptionProvider">Transcription</label>
+                                <select class="select-input" id="transcriptionProvider" name="transcription_provider">
+                                    <option value="local" selected>Local Faster Whisper</option>
+                                    <option value="elevenlabs">ElevenLabs Scribe</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="field-label" for="visualProvider">Visual intelligence</label>
+                                <select class="select-input" id="visualProvider" name="visual_provider">
+                                    <option value="local" selected>On-device / local analysis</option>
+                                    <option value="gemini">Google Gemini</option>
+                                </select>
+                            </div>
                         </div>
                     </div>
                     <div id="elevenLabsCredentials" class="provider-credentials" hidden>

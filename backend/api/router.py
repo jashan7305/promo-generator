@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import re
 import shutil
@@ -35,12 +36,20 @@ CHUNK_SIZE = 1024 * 1024
 executor = ThreadPoolExecutor(max_workers=max(1, int(os.getenv("PROMO_WORKERS", "1"))))
 jobs: dict[str, dict] = {}
 jobs_lock = threading.Lock()
+logger = logging.getLogger(__name__)
 
 
 def _set_job(job_id: str, **updates) -> None:
     with jobs_lock:
-        if job_id in jobs:
-            jobs[job_id].update(updates)
+        job = jobs.get(job_id)
+        if not job:
+            return
+
+        incoming_progress = updates.get("progress")
+        current_progress = job.get("progress", 0)
+        if incoming_progress is not None and incoming_progress < current_progress:
+            updates = {key: value for key, value in updates.items() if key not in {"progress", "stage"}}
+        job.update(updates)
 
 
 def _public_job(job: dict) -> dict:
@@ -256,6 +265,7 @@ def _run_generation(
         result["download_url"] = f"/api/download/promos/{relative_output.as_posix()}"
         _set_job(job_id, status="completed", progress=1.0, stage="Promo ready", result=result)
     except Exception as error:
+        logger.exception("Generation job %s failed", job_id)
         _set_job(job_id, status="failed", progress=1.0, stage="Generation stopped", error=str(error))
 
 
@@ -303,8 +313,9 @@ async def generate_promo_route(
             raise HTTPException(status_code=422, detail="Unknown visual intelligence provider.")
         if transcription_provider == "elevenlabs" and not ((elevenlabs_api_key or "").strip() or logic.ELEVENLABS_API_KEY):
             raise HTTPException(status_code=422, detail="Enter an ElevenLabs API key or configure ELEVENLABS_API_KEY.")
-        if visual_provider == "gemini" and not ((gemini_api_key or "").strip() or logic.GEMINI_API_KEY):
-            raise HTTPException(status_code=422, detail="Enter a Gemini API key or configure PROMO_GEMINI_API_KEY.")
+        # Allow gemini visual provider without API key - logic layer will fallback to local analysis
+        # if visual_provider == "gemini" and not ((gemini_api_key or "").strip() or logic.GEMINI_API_KEY):
+        #     raise HTTPException(status_code=422, detail="Enter a Gemini API key or configure PROMO_GEMINI_API_KEY.")
     elif analysis_mode == "gemini" and not ((provider_key or "").strip() or logic.GEMINI_API_KEY):
         raise HTTPException(status_code=422, detail="Enter a Gemini API key or configure PROMO_GEMINI_API_KEY.")
     elif analysis_mode == "elevenlabs" and not ((provider_key or "").strip() or logic.ELEVENLABS_API_KEY):
