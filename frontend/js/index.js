@@ -2,6 +2,8 @@ const uploadForm = document.getElementById('uploadForm');
 const fileInput = document.getElementById('videoFile');
 const musicInput = document.getElementById('musicFile');
 const audioModeInput = document.getElementById('audioMode');
+const analysisModeInput = document.getElementById('analysisMode');
+const providerSelectors = document.getElementById('providerSelectors');
 const transcriptionProviderInput = document.getElementById('transcriptionProvider');
 const visualProviderInput = document.getElementById('visualProvider');
 const elevenLabsKeyInput = document.getElementById('elevenLabsKey');
@@ -40,14 +42,36 @@ const MAX_FILE_BYTES = 1024 * 1024 * 1024;
 const MAX_MUSIC_BYTES = 512 * 1024 * 1024;
 
 function updateProviderFields() {
+    const analysisMode = analysisModeInput.value;
     const transcriptionProvider = transcriptionProviderInput.value;
     const visualProvider = visualProviderInput.value;
-    elevenLabsCredentials.hidden = transcriptionProvider !== 'elevenlabs';
-    geminiCredentials.hidden = visualProvider !== 'gemini';
-    elevenLabsKeyInput.required = transcriptionProvider === 'elevenlabs';
-    geminiKeyInput.required = visualProvider === 'gemini';
-    if (transcriptionProvider !== 'elevenlabs') elevenLabsKeyInput.value = '';
-    if (visualProvider !== 'gemini') geminiKeyInput.value = '';
+
+    // Show/hide provider selectors based on analysis mode
+    const isCustomProviders = analysisMode === 'providers';
+    providerSelectors.hidden = !isCustomProviders;
+
+    // Set defaults based on analysis mode
+    if (analysisMode === 'local') {
+        transcriptionProviderInput.value = 'local';
+        visualProviderInput.value = 'local';
+    } else if (analysisMode === 'gemini') {
+        transcriptionProviderInput.value = 'local';
+        visualProviderInput.value = 'gemini';
+    } else if (analysisMode === 'elevenlabs') {
+        transcriptionProviderInput.value = 'elevenlabs';
+        visualProviderInput.value = 'local';
+    }
+
+    // Show/hide credentials based on selected providers
+    const effectiveTranscription = isCustomProviders ? transcriptionProvider : transcriptionProviderInput.value;
+    const effectiveVisual = isCustomProviders ? visualProvider : visualProviderInput.value;
+
+    elevenLabsCredentials.hidden = effectiveTranscription !== 'elevenlabs';
+    geminiCredentials.hidden = effectiveVisual !== 'gemini';
+    elevenLabsKeyInput.required = effectiveTranscription === 'elevenlabs';
+    geminiKeyInput.required = effectiveVisual === 'gemini';
+    if (effectiveTranscription !== 'elevenlabs') elevenLabsKeyInput.value = '';
+    if (effectiveVisual !== 'gemini') geminiKeyInput.value = '';
 }
 let sourcePreviewUrl = null;
 let pollTimer = null;
@@ -127,12 +151,12 @@ async function readJson(response) {
 
 async function pollJob(statusUrl) {
     const job = await readJson(await fetch(statusUrl, { headers: { Accept: 'application/json' } }));
+    if (job.status === 'failed') throw new Error(job.error || 'The local cut failed.');
     updateStages(job.progress, job.stage);
     if (job.status === 'queued' || job.status === 'running') {
         pollTimer = window.setTimeout(() => pollJob(statusUrl), 1100);
         return;
     }
-    if (job.status === 'failed') throw new Error(job.error || 'The local cut failed.');
     renderResult(job.result);
 }
 
@@ -275,7 +299,8 @@ uploadForm.addEventListener('submit', async (event) => {
         generationForm.append('energy', document.getElementById('energy').value);
         generationForm.append('aspect_ratio', document.getElementById('aspectRatio').value);
         generationForm.append('strategy', document.getElementById('strategy').value);
-        generationForm.append('analysis_mode', 'providers');
+        generationForm.append('analysis_mode', analysisModeInput.value);
+        // For non-providers mode, the backend will ignore these and use defaults
         generationForm.append('transcription_provider', transcriptionProviderInput.value);
         generationForm.append('visual_provider', visualProviderInput.value);
         if (transcriptionProviderInput.value === 'elevenlabs' && elevenLabsKeyInput.value.trim()) {
@@ -299,5 +324,6 @@ uploadForm.addEventListener('submit', async (event) => {
 
 transcriptionProviderInput.addEventListener('change', updateProviderFields);
 visualProviderInput.addEventListener('change', updateProviderFields);
+analysisModeInput.addEventListener('change', updateProviderFields);
 updateProviderFields();
 setStatus('Waiting for a video.', 0, 'STANDBY');

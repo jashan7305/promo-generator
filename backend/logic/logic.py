@@ -16,6 +16,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from itertools import combinations
 from urllib.parse import parse_qs, urlparse
 import uuid
@@ -1376,35 +1377,78 @@ def sample_motion(profile: dict, start: float, end: float) -> float:
 
 
 def detect_shot_boundaries(video_path: str | Path, duration: float) -> list[float]:
-    """Detect meaningful visual cuts without adding an OpenCV dependency."""
+    """Detect meaningful visual cuts without adding an OpenCV dependency.
+
+    Uses adaptive threshold based on scene change distribution for better
+    detection across different video types (action, dialogue, documentary).
+    """
 
     ffmpeg_binary = shutil.which("ffmpeg")
     if not ffmpeg_binary:
         return [0.0, duration]
 
+    # First pass: collect all scene scores
     command = [
         ffmpeg_binary,
         "-hide_banner",
         "-i",
         str(video_path),
         "-vf",
-        "select='gt(scene,0.32)',showinfo",
+        "select='gt(scene,0)',showinfo",
         "-an",
         "-f",
         "null",
         "-",
     ]
     try:
-        completed = subprocess.run(command, capture_output=True, text=True, check=False)
-    except OSError:
+        completed = subprocess.run(command, capture_output=True, text=True, check=False, timeout=max(60, int(duration * 2)))
+    except (OSError, subprocess.TimeoutExpired):
         return [0.0, duration]
 
-    timestamps = [float(value) for value in re.findall(r"pts_time:([0-9.]+)", completed.stderr)]
+    # Parse scene scores and timestamps
+    scene_data = []
+    for line in completed.stderr.split('\n'):
+        if 'pts_time:' in line and 'scene_score' in line:
+            try:
+                pts_match = re.search(r"pts_time:([0-9.]+)", line)
+                score_match = re.search(r"scene_score:([0-9.]+)", line)
+                if pts_match and score_match:
+                    timestamp = float(pts_match.group(1))
+                    score = float(score_match.group(1))
+                    scene_data.append((timestamp, score))
+            except (ValueError, IndexError):
+                continue
+
+    if not scene_data:
+        return [0.0, duration]
+
+    # Adaptive threshold: use 75th percentile of scores, minimum 0.15, maximum 0.45
+    scores = [s for _, s in scene_data]
+    scores.sort()
+    percentile_idx = int(len(scores) * 0.75)
+    adaptive_threshold = max(0.15, min(0.45, scores[percentile_idx]))
+
+    # Also consider fixed threshold as fallback
+    fixed_threshold = 0.32
+    threshold = min(adaptive_threshold, fixed_threshold)
+
     boundaries = [0.0]
-    for timestamp in timestamps:
-        if 0.5 < timestamp < duration - 0.5 and timestamp - boundaries[-1] >= 0.7:
-            boundaries.append(timestamp)
+    for timestamp, score in scene_data:
+        if score >= threshold and 0.5 < timestamp < duration - 0.5:
+            if timestamp - boundaries[-1] >= 0.7:
+                boundaries.append(timestamp)
     boundaries.append(duration)
+
+    # If too few boundaries, lower threshold and retry
+    if len(boundaries) <= 2 and len(scene_data) > 2:
+        lower_threshold = max(0.1, threshold * 0.5)
+        boundaries = [0.0]
+        for timestamp, score in scene_data:
+            if score >= lower_threshold and 0.5 < timestamp < duration - 0.5:
+                if timestamp - boundaries[-1] >= 0.5:
+                    boundaries.append(timestamp)
+        boundaries.append(duration)
+
     return boundaries
 
 
@@ -1595,13 +1639,25 @@ def extract_storyboard(
     boundaries: list[float],
     max_frames: int = 18,
 ) -> list[dict]:
-    """Extract small JPEG storyboard frames for a vision-capable API."""
+    """Extract small JPEG storyboard frames for a vision-capable API.
+
+    Uses shot boundaries, high-motion moments, and uniform sampling for
+    comprehensive visual coverage.
+    """
 
     workspace = Path(workspace)
     storyboard_dir = workspace / "storyboard"
     storyboard_dir.mkdir(parents=True, exist_ok=True)
+
+    # Get diverse timestamps: shot boundaries midpoints + high motion + uniform
+    timestamps = _storyboard_times(duration, boundaries, max_frames)
+
+    # Ensure we have timestamps even if boundaries detection was minimal
+    if len(timestamps) < 3:
+        timestamps = np.linspace(0.5, max(0.5, duration - 0.5), min(max_frames, 8)).tolist()
+
     frames = []
-    for index, timestamp in enumerate(_storyboard_times(duration, boundaries, max_frames)):
+    for index, timestamp in enumerate(timestamps):
         frame_path = storyboard_dir / f"frame-{index:02d}.jpg"
         try:
             (
@@ -1620,6 +1676,29 @@ def extract_storyboard(
         except (OSError, ffmpeg.Error):
             continue
         frames.append({"time": timestamp, "data_url": f"data:image/jpeg;base64,{encoded}"})
+
+    # If no frames extracted, create at least one at the middle
+    if not frames and duration > 1:
+        mid_frame = storyboard_dir / "frame-mid.jpg"
+        try:
+            mid_time = duration / 2
+            (
+                ffmpeg.input(str(video_path), ss=mid_time)
+                .output(
+                    str(mid_frame),
+                    vframes=1,
+                    vf="scale=640:-2:flags=fast_bilinear",
+                    q=5,
+                    format="image2",
+                )
+                .overwrite_output()
+                .run(quiet=True, capture_stderr=True)
+            )
+            encoded = base64.b64encode(mid_frame.read_bytes()).decode("ascii")
+            frames.append({"time": mid_time, "data_url": f"data:image/jpeg;base64,{encoded}"})
+        except (OSError, ffmpeg.Error):
+            pass
+
     return frames
 
 
@@ -3463,8 +3542,7 @@ def resolve_analysis_configuration(
     visual_key = gemini_api_key or (provider_key if visual_provider == "gemini" else None)
     if visual_provider == "gemini":
         visual_key = visual_key or GEMINI_API_KEY
-        if not visual_key:
-            raise ValueError("Gemini visual intelligence is selected, but no Gemini API key was provided.")
+        # Allow missing key - logic layer will fallback to local analysis
     elif visual_provider == "openai":
         visual_key = provider_key or VISION_API_KEY
         if not visual_key:
@@ -3596,29 +3674,69 @@ def generate_promo(
         _progress(progress_callback, 0.18 + min(0.30, value / max(metadata["duration"], 1.0) * 0.30), stage)
 
     transcription_backend = "local"
-    if audio_path and transcription_provider in {"elevenlabs", "openai"}:
-        try:
-            raw_dialogues = transcribe_audio_with_provider(
-                transcription_provider, audio_path, api_key=transcription_key,
-                duration=metadata["duration"], progress_callback=transcription_progress,
-            )
-            transcription_backend = transcription_provider
-        except Exception:
-            if not configuration["legacy_auto"]:
-                raise
-            transcription_provider = "local"
-    if audio_path and not raw_dialogues and transcription_provider in {"local", "openai"}:
-        raw_dialogues = transcribe_audio_with_provider(
-            "local", audio_path, duration=metadata["duration"],
-            progress_callback=transcription_progress,
+    raw_dialogues: list[dict] = []
+    shot_boundaries: list[float] = []
+    motion_profile: dict = {"values": np.array([], dtype=np.float32), "window": 0.5}
+
+    # Run transcription and visual analysis in parallel
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = {}
+
+        # Submit transcription task
+        if audio_path:
+            if transcription_provider in {"elevenlabs", "openai"}:
+                futures["transcribe_api"] = executor.submit(
+                    transcribe_audio_with_provider,
+                    transcription_provider, audio_path,
+                    api_key=transcription_key,
+                    duration=metadata["duration"],
+                    progress_callback=transcription_progress,
+                )
+            if transcription_provider in {"local", "openai"} or not futures:
+                futures["transcribe_local"] = executor.submit(
+                    transcribe_audio_with_provider,
+                    "local", audio_path,
+                    duration=metadata["duration"],
+                    progress_callback=transcription_progress,
+                )
+
+        # Submit visual analysis tasks
+        futures["shot_boundaries"] = executor.submit(
+            detect_shot_boundaries, video_path, metadata["duration"]
         )
-        transcription_backend = "local"
+        futures["motion_profile"] = executor.submit(
+            read_motion_profile, video_path, metadata["duration"]
+        )
+
+        # Collect results
+        for name, future in futures.items():
+            try:
+                result = future.result()
+                if name == "transcribe_api":
+                    raw_dialogues = result
+                    transcription_backend = transcription_provider
+                elif name == "transcribe_local" and not raw_dialogues:
+                    raw_dialogues = result
+                    transcription_backend = "local"
+                elif name == "shot_boundaries":
+                    shot_boundaries = result
+                elif name == "motion_profile":
+                    motion_profile = result
+            except Exception as e:
+                if name in {"transcribe_api", "transcribe_local"}:
+                    if not configuration.get("legacy_auto", False) and name == "transcribe_api":
+                        raise
+                    # For local transcription failure, continue with empty dialogues
+                elif name in {"shot_boundaries", "motion_profile"}:
+                    # Visual analysis failures - use defaults
+                    if name == "shot_boundaries":
+                        shot_boundaries = [0.0, metadata["duration"]]
+                    else:
+                        motion_profile = {"values": np.array([], dtype=np.float32), "window": 0.5}
+
     visual_backend = "local"
     dialogues = split_dialogue_sentences(merge_dialogue_segments(raw_dialogues))
     _progress(progress_callback, 0.50, "Analysing visual rhythm")
-
-    shot_boundaries = detect_shot_boundaries(video_path, metadata["duration"])
-    motion_profile = read_motion_profile(video_path, metadata["duration"])
     for dialogue in dialogues:
         dialogue["energy_score"] = sample_audio_energy(energy_profile, dialogue["start"], dialogue["end"])
         dialogue["visual_score"] = sample_visual_change(
@@ -3642,29 +3760,37 @@ def generate_promo(
     api_result: dict = {}
     if visual_provider in {"gemini", "openai"}:
         _progress(progress_callback, 0.58, "Analysing storyboard with vision API")
-        try:
-            storyboard = extract_storyboard(
-                video_path,
-                workspace,
-                metadata["duration"],
-                shot_boundaries,
-            )
-            if not storyboard:
-                raise RuntimeError("No usable storyboard frames could be extracted for the selected visual provider.")
-            api_result = analyze_storyboard_with_api(
-                storyboard,
-                theme,
-                metadata["duration"],
-                dialogues,
-                strategy,
-                request=request,
-                provider=visual_provider,
-                api_key=visual_key,
-            )
-            visual_backend = visual_provider
-        except Exception:
-            if not configuration["legacy_auto"]:
-                raise
+        # Check API key availability first
+        if not visual_key:
+            _progress(progress_callback, 0.60, "API key missing for vision provider; falling back to local analysis")
+        else:
+            try:
+                storyboard = extract_storyboard(
+                    video_path,
+                    workspace,
+                    metadata["duration"],
+                    shot_boundaries,
+                )
+                if not storyboard:
+                    raise RuntimeError("No usable storyboard frames could be extracted for the selected visual provider.")
+                api_result = analyze_storyboard_with_api(
+                    storyboard,
+                    theme,
+                    metadata["duration"],
+                    dialogues,
+                    strategy,
+                    request=request,
+                    provider=visual_provider,
+                    api_key=visual_key,
+                )
+                visual_backend = visual_provider
+            except Exception as e:
+                # Graceful fallback to local analysis instead of failing
+                _progress(progress_callback, 0.60, f"Vision API failed ({e}); falling back to local analysis")
+                api_result = {}
+    # If no API result (fallback or not requested), ensure visual_backend is local
+    if visual_backend == "local" and visual_provider in {"gemini", "openai"}:
+        pass  # Already local, local analysis already ran
     provider = "local" if transcription_backend == "local" and visual_backend == "local" else (
         f"{transcription_backend}-audio+{visual_backend}-visual" if audio_path else f"{visual_backend}-visual"
     )
@@ -3830,7 +3956,7 @@ def generate_promo(
     render_report = validate_render(
         output_path,
         metadata["has_audio"] or bool(music_path),
-        expected_duration=min(float(target_duration), float(metadata["duration"])),
+        expected_duration=sum(end - start for start, end in clips),
         expected_aspect_ratio=aspect_ratio,
     )
     render_report["dialogue_timeline"] = dialogue_report

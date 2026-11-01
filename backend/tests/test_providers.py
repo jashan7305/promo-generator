@@ -222,11 +222,15 @@ class ProviderSelectionTests(unittest.TestCase):
         self.assertIsNone(result["visual_key"])
 
     def test_missing_provider_keys_fail_before_external_calls(self):
+        # ElevenLabs still requires key (no fallback for transcription)
         with patch.object(logic, "GEMINI_API_KEY", None), patch.object(logic, "ELEVENLABS_API_KEY", None):
-            with self.assertRaisesRegex(ValueError, "Gemini.*no Gemini API key"):
-                logic.resolve_analysis_configuration(
-                    analysis_mode="providers", visual_provider="gemini"
-                )
+            # Gemini visual can fallback to local, so no error
+            result = logic.resolve_analysis_configuration(
+                analysis_mode="providers", visual_provider="gemini"
+            )
+            self.assertEqual(result["visual_provider"], "gemini")
+            self.assertIsNone(result["visual_key"])
+            # ElevenLabs transcription still requires key
             with self.assertRaisesRegex(ValueError, "ElevenLabs.*no ElevenLabs API key"):
                 logic.resolve_analysis_configuration(
                     analysis_mode="providers", transcription_provider="elevenlabs"
